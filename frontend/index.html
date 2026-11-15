@@ -236,6 +236,18 @@
         </div>
 
         <p class="text-sm text-slate-300 mb-2">¿Qué sembrar después de <b id="intro-crop" class="text-white">tu cultivo</b>? Mueve las tres prioridades del círculo (ahorrar agua, cuidar el suelo, ganar más) y mira qué rotación te conviene.</p>
+        <div class="mb-3 flex flex-wrap items-center gap-2 bg-sky-500/10 border border-sky-500/30 rounded-lg px-3 py-2">
+          <p class="text-xs text-sky-100">💧 <b id="farm-water">Te llegan unos 21.000 m³ por hectárea al año</b> <span class="text-sky-200/70">(entrega de Pitay repartida en la pampa)</span></p>
+          <div class="flex gap-1.5 ml-auto" role="group" aria-label="Agua del año">
+            <button type="button" data-cap="100" class="fit-cap px-2 py-0.5 rounded-md border text-[11px] font-semibold">Año normal</button>
+            <button type="button" data-cap="88" class="fit-cap px-2 py-0.5 rounded-md border text-[11px] font-semibold">Año seco (88 %)</button>
+          </div>
+        </div>
+        <div class="mb-3">
+          <p class="text-xs text-slate-300 mb-1.5">¿Qué piensas sembrar? <span class="text-slate-500">Marca los cultivos que de verdad puedes sembrar; si no marcas ninguno, se consideran todos.</span></p>
+          <div id="planned-crops" class="flex flex-wrap gap-1.5"></div>
+          <p id="planned-note" class="hidden mt-2 text-[12px] text-amber-300"></p>
+        </div>
         <details class="mb-3 text-[11px] text-slate-400"><summary class="cursor-pointer text-slate-300">Cómo leer los cuadros y la confianza</summary><div class="mt-2 space-y-2"><p class="text-[11px] text-slate-400 leading-relaxed">Más cuadros llenos = mejor en ese criterio: <span class="text-sky-300">Agua</span> = ahorra más agua, <span class="text-emerald-300">Suelo</span> = cuida más el suelo, <span class="text-orange-300">Ingreso</span> = gana más. <b>Confianza</b> = cuán respaldada está la recomendación por datos y fuentes.</p>
         <p class="text-[11px] text-slate-400 leading-relaxed">Los cuadros comparan cada rotación con las otras posibles; no son una nota absoluta. Casi todos los cultivos le quitan nitrógeno al suelo: solo la haba y la alfalfa lo reponen, pero la alfalfa gasta mucha agua. Por eso una rotación que gana en agua e ingreso suele sacar pocos cuadros en suelo.</p>
         </div></details>
@@ -374,6 +386,19 @@
               </p>
             </div>
           </div>
+        
+          <div id="water-fit" class="mt-3 bg-[#0d1015] border border-slate-700/75 rounded-xl p-3">
+            <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+              <h3 class="text-xs font-bold uppercase tracking-wide text-sky-300">¿Cabe en tu agua? <span class="normal-case font-normal text-slate-400">mes a mes, por hectárea</span></h3>
+              <div class="flex gap-1.5" role="group" aria-label="Agua del año">
+                <button type="button" data-cap="100" class="fit-cap px-2 py-0.5 rounded-md border text-[11px] font-semibold">Año normal</button>
+                <button type="button" data-cap="88" class="fit-cap px-2 py-0.5 rounded-md border text-[11px] font-semibold">Año seco (88 %, como 2014)</button>
+              </div>
+            </div>
+            <div id="water-fit-charts" class="grid grid-cols-1 sm:grid-cols-3 gap-3"></div>
+            <p id="water-fit-summary" class="mt-2 text-xs text-slate-300 leading-relaxed"></p>
+            <p class="mt-1 text-[10px] text-slate-500">Barras: agua que pide el cultivo (naranja si pide más de lo que llega). Línea: agua que llega a cada hectárea (entrega de Pitay 2013–2025). Una campaña por año.</p>
+          </div>
         </section>
       </div>
       <aside id="map-col" aria-label="Mapa" class="lg:min-h-0">
@@ -391,11 +416,18 @@
         <div id="parcel-map" class="border border-slate-700 lg:flex-1 lg:min-h-[220px]"></div>
         <div id="pixel-info" class="mt-3 lg:max-h-[38%] lg:overflow-y-auto pr-1 text-xs text-slate-300 leading-relaxed">Toca un punto de la pampa para ver lo que registró el satélite en ese lugar.</div>
 
-        <div class="mt-2 flex items-center justify-between text-[11px] text-slate-400">
+        <div id="map-legend-farmer" class="mt-2 flex items-center justify-between text-[11px] text-slate-400">
           <span data-i18n="mapOk">🟢 Regado</span>
           <span data-i18n="mapWarn">🟡 Mixto</span>
           <span data-i18n="mapBad">⚪ Desierto</span>
           <span class="text-slate-500" data-i18n="mapHint">Toca tu parcela para ver qué vio el satélite</span>
+        </div>
+        <div id="map-legend-junta" class="hidden mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-slate-400">
+          <span><span class="inline-block w-2.5 h-2.5 rounded-full align-middle mr-1" style="background:#f97316"></span>Pierde mucho (−10 % o más)</span>
+          <span><span class="inline-block w-2.5 h-2.5 rounded-full align-middle mr-1" style="background:#facc15"></span>Pierde algo (−3 a −10 %)</span>
+          <span><span class="inline-block w-2.5 h-2.5 rounded-full align-middle mr-1" style="background:#38bdf8"></span>Aguanta</span>
+          <span><span class="inline-block w-2.5 h-2.5 rounded-full align-middle mr-1" style="background:#94a3b8"></span>Cambió de uso (no se recupera)</span>
+          <span><span class="inline-block w-2.5 h-2.5 rounded-full align-middle mr-1" style="background:#dc2626"></span>Sin riego si falta agua (barra «Agua que llega»)</span>
         </div>
       </section>
       </aside>

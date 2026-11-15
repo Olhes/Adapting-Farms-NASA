@@ -155,3 +155,64 @@ def site(lat, lon, zone="majes"):
             "caida_anios_secos_pct": round(sum(dry) / len(dry), 1) if dry else None,
             "peor_anio_seco_pct": min(dry) if dry else None,
             "et_mm": info["et_mm_anual"], "et_zona_mm": round(zone_et_mean(zone)), "factor_agua": ratio}
+
+
+
+def vulnerability(zone="majes", min_mean=0.3):
+    """Where a year with less water hits hardest: per irrigated pixel, mean greenness change in the dry years
+    (2014, 2016, 2023) versus its own other years (2013-2024). Majes only: the dry years come from the Condoroma
+    delivery, which does not feed other valleys."""
+    dry_years = list(DRY.get(zone, {}))
+    if not available(zone) or not dry_years:
+        return {"disponible": False, "mensaje": "Solo hay años secos registrados para la pampa de Majes."}
+    years, mean = _ndvi(zone)
+    keep = [k for k, y in enumerate(years) if y < 2025]
+    base = np.nanmean(mean[keep], axis=0)
+    r0, nr, c0, nc = _grid(NDVI_PIX, zone)
+    ha = NDVI_PIX ** 2 / 1e4
+    pts, per_year = [], {y: 0 for y in dry_years}
+    lat_c, lon_c = [], []
+    for i in range(nr):
+        for j in range(nc):
+            if not base[i, j] >= min_mean:
+                continue
+            series = {y: mean[k, i, j] for k, y in enumerate(years)}
+            first = np.nanmean([series[y] for y in (2013, 2014, 2015)])
+            last = np.nanmean([series[y] for y in (2022, 2023, 2024)])
+            changes = []
+            if last < 0.75 * first:
+                level, avg = "cambio", float(100 * (last / first - 1))   # lasting decline: city growth or abandonment, not drought
+            else:
+                for y in dry_years:
+                    k = years.index(y)
+                    others = [mean[q, i, j] for q in keep if q != k and not np.isnan(mean[q, i, j])]
+                    nxt = series.get(y + 1, np.nan)
+                    if np.isnan(mean[k, i, j]) or not others:
+                        continue
+                    ref = np.mean(others)
+                    c = 100 * (mean[k, i, j] / ref - 1)
+                    if not np.isnan(nxt) and nxt < 0.9 * ref and c < 0:
+                        continue                                       # did not recover the next year: not a water signal
+                    changes.append(c)
+                    per_year[y] += c <= -15
+                avg = float(np.mean(changes)) if changes else 0.0
+                level = "alta" if avg <= -10 else ("media" if avg <= -3 else "baja")
+            la, lo = _inv(ULX + (c0 + j + 0.5) * NDVI_PIX, ULY - (r0 + i + 0.5) * NDVI_PIX)
+            pts.append([round(la, 5), round(lo, 5), round(avg, 1), level])
+            if level == "alta":
+                lat_c.append(la), lon_c.append(lo)
+    count = {lv: sum(p[3] == lv for p in pts) for lv in ("alta", "media", "baja", "cambio")}
+    sector = None
+    if lat_c:
+        all_la, all_lo = np.median([p[0] for p in pts]), np.median([p[1] for p in pts])
+        ns = "norte" if np.mean(np.array(lat_c) > all_la) > 0.6 else ("sur" if np.mean(np.array(lat_c) > all_la) < 0.4 else "")
+        ew = "este" if np.mean(np.array(lon_c) > all_lo) > 0.6 else ("oeste" if np.mean(np.array(lon_c) > all_lo) < 0.4 else "")
+        names = {("norte", "este"): "noreste", ("norte", "oeste"): "noroeste", ("sur", "este"): "sureste", ("sur", "oeste"): "suroeste"}
+        sector = names.get((ns, ew)) or (ns or ew) or "repartida en toda la pampa"
+    return {"disponible": True, "anios_secos": {str(y): DRY[zone][y] for y in dry_years},
+            "puntos": pts, "cuadros": count, "ha": {k: round(v * ha) for k, v in count.items()},
+            "ha_con_caida_15_por_anio": {str(y): round(v * ha) for y, v in per_year.items()},
+            "sector_mas_sensible": sector, "pixel_ha": round(ha, 2),
+            "fuente": "MODIS MOD13Q1 (NASA). Cambio de verdor de cada cuadro en los años con menos agua frente a sus otros años; "
+                      "solo cuenta una caída si el cuadro se recupera al año siguiente. Los cuadros que bajan para siempre "
+                      "(2022-2024 un 25 % por debajo de 2013-2015) se marcan como cambio de uso."}

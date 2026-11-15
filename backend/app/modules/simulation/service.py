@@ -8,6 +8,7 @@ _MODEL_DIR = Path(__file__).resolve().parents[4] / "model"
 if str(_MODEL_DIR) not in sys.path:
     sys.path.insert(0, str(_MODEL_DIR))
 
+import agua_parcela  # noqa: E402
 import generador  # noqa: E402
 import pixeles  # noqa: E402
 import simulador_tope as sim  # noqa: E402
@@ -63,11 +64,16 @@ def rotation_crops() -> dict:
 
 
 def generate_rotations(crop: str, water: int, soil: int, income: int, salinity: float,
-                       lat: float | None = None, lon: float | None = None, zone: str = "majes") -> list[dict]:
+                       lat: float | None = None, lon: float | None = None, zone: str = "majes",
+                       crops: list[str] | None = None, cap_pct: float = 100.0) -> list[dict]:
     if crop not in generador.CANDIDATES:
         raise ValueError(f"Cultivo sin datos en el modelo: {crop}")
     site = pixeles.site(lat, lon, zone) if lat is not None and lon is not None else None
-    return generador.generate(crop, w_water=water, w_soil=soil, w_income=income, ece=salinity, site=site)
+    unknown = [c for c in (crops or []) if c not in generador.CANDIDATES]
+    if unknown:
+        raise ValueError(f"Cultivos sin datos en el modelo: {', '.join(unknown)}")
+    return generador.generate(crop, w_water=water, w_soil=soil, w_income=income, ece=salinity, site=site,
+                              allowed=crops or None, cap_pct=cap_pct)
 
 
 def point_info(lat: float, lon: float, zone: str) -> dict:
@@ -76,3 +82,15 @@ def point_info(lat: float, lon: float, zone: str) -> dict:
 
 def irrigated_points(zone: str) -> list:
     return pixeles.irrigated_points(zone=zone)
+
+
+def water_calendar(sequence: list[str], cap_pct: float, area_ha: float) -> dict:
+    unknown = [c for c in sequence if c not in generador.CANDIDATES]
+    if unknown or not sequence:
+        raise ValueError(f"Cultivos sin datos en el modelo: {', '.join(unknown) or '(ninguno)'}")
+    return agua_parcela.calendar(sequence, cap_pct, area_ha)
+
+
+
+def vulnerability(zone: str) -> dict:
+    return pixeles.vulnerability(zone)

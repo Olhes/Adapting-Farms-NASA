@@ -4,7 +4,8 @@
 (function () {
   const API_BASE = (window.FIELD_SHIFT_API || (location.protocol.startsWith('http') ? location.origin : 'http://localhost:8765')).replace(/\/$/, '');
   let rankSeq = 0;
-  let sitePoint = null;   // [lat, lon] of the pixel the user tapped; rotations are adjusted to it
+  let sitePoint = null;
+  const planned = new Set();   // crops the farmer plans to sow; empty = all   // [lat, lon] of the pixel the user tapped; rotations are adjusted to it
   let apiUp = false;   // true after the first successful call; while true, app.js does not paint its local table
 
   function setStatus(ok) {
@@ -26,7 +27,7 @@
     soilImpact: r.soil_impact, waterBalance: r.water_balance,
     adjWater: r.adj_water, adjSoil: r.adj_soil, adjIncome: r.adj_income,
     score: r.score, matchPct: r.match_pct,
-    paretoX: r.pareto_x, paretoY: r.pareto_y, paretoOptimal: r.pareto_optimal,
+    paretoX: r.pareto_x, paretoY: r.pareto_y, paretoOptimal: r.pareto_optimal, facts: r.facts,
   });
 
   /* Rotation ranking from the backend; the local result is already on screen, this replaces it. */
@@ -38,9 +39,13 @@
       const q = new URLSearchParams({ crop: state.currentCrop, water: state.priorities.water, soil: state.priorities.soil,
                                       income: state.priorities.income, salinity: state.climate.salinity, zone: state.zone });
       if (sitePoint) { q.set('lat', sitePoint[0]); q.set('lon', sitePoint[1]); }
+      if (planned.size) q.set('crops', [...planned].join(','));
+      q.set('cap_pct', fitCap);
       const ranked = await getJson('/api/model/rotations?' + q);   // rotations generated from rules + the water/soil/income model
       if (seq !== rankSeq) return;           // a newer request is in flight
       setStatus(true);
+      showPlannedNote(ranked);
+      showFarmWater(ranked);
       recalculateAll(ranked.map(toLocal));
     } catch (err) {
       if (seq === rankSeq) { setStatus(false); recalculateAll(); }   // API down: fall back to the local table
@@ -54,6 +59,47 @@
 
   const fmt = (n, d = 0) => Number(n).toLocaleString('es-PE', { maximumFractionDigits: d, minimumFractionDigits: d });
 
+  function renderPlanned(crops) {
+    const box = $('planned-crops');
+    if (!box) return;
+    const on = 'bg-emerald-500/20 border-emerald-400 text-white', off = 'bg-p3-surface border-slate-700 text-slate-400 hover:text-slate-200';
+    box.innerHTML = crops.map((c) => `<button type="button" data-crop="${c}" aria-pressed="${planned.has(c)}" class="px-2.5 py-1 rounded-lg border text-xs font-semibold ${planned.has(c) ? on : off}">${c}</button>`).join('');
+    box.querySelectorAll('button').forEach((b) => b.onclick = () => {
+      const c = b.dataset.crop;
+      planned.has(c) ? planned.delete(c) : planned.add(c);
+      renderPlanned(crops);
+      refreshRanking();
+    });
+  }
+  function styleFitButtons() {
+    document.querySelectorAll('.fit-cap').forEach((b) => {
+      b.className = 'fit-cap px-2 py-0.5 rounded-md border text-[11px] font-semibold ' + (+b.dataset.cap === fitCap ? 'bg-sky-500/20 border-sky-400 text-white' : 'bg-p3-surface border-slate-700 text-slate-400');
+    });
+  }
+  function showFarmWater(ranked) {
+    const f = ranked[0] && ranked[0].facts && ranked[0].facts.agua_cabe;
+    if (f && $('farm-water')) $('farm-water').textContent = `Te llegan unos ${fmt(f.llega_m3_ha_anio)} m³ por hectárea al año` + (f.cap_pct !== 100 ? ` (${f.cap_pct} % del agua normal)` : '');
+    styleFitButtons();
+  }
+  function badge(rot) {
+    const f = rot.facts && rot.facts.agua_cabe;
+    if (!f) return '';
+    const [cls, txt] = !f.cabe_en_el_anio ? ['border-rose-500/60 text-rose-200 bg-rose-500/10', `No cabe en tu agua: ${f.no_caben.join(', ')} pide más de ${fmt(f.llega_m3_ha_anio)} m³/ha`]
+      : f.max_meses_con_deficit ? ['border-amber-500/60 text-amber-200 bg-amber-500/10', `Cabe en el año; en ${f.max_meses_con_deficit} meses pide más de lo que llega`]
+      : ['border-emerald-500/60 text-emerald-200 bg-emerald-500/10', 'Cabe en tu agua todos los meses'];
+    return `<p class="-mt-1 mb-2 inline-block px-2 py-0.5 rounded-md border text-[11px] font-semibold ${cls}">💧 ${txt}</p>`;
+  }
+  function showPlannedNote(ranked) {
+    const note = $('planned-note');
+    if (!note) return;
+    const mode = ranked[0] && ranked[0].facts ? ranked[0].facts.modo : 'libre';
+    const msg = mode === 'sugerencia'
+      ? 'Con solo esos cultivos no hay rotación que respete las reglas (misma familia seguida o papa antes de 3 años). Abajo: qué agregar para poder rotar, y tu forma actual para comparar.'
+      : (mode === 'lista' ? 'Rotaciones armadas solo con tus cultivos. La última es tu forma actual, para comparar.' : '');
+    note.textContent = msg;
+    note.classList.toggle('hidden', !msg);
+  }
+
   async function loadRotationCrops() {
     try {
       const { crops } = await getJson('/api/model/rotation-crops');
@@ -63,6 +109,7 @@
       sel.innerHTML = crops.map((c) => `<option value="${c}">${c}</option>`).join('');
       sel.value = keep;
       state.currentCrop = keep;
+      renderPlanned(crops);
       syncIntroCrop();
       refreshRanking();
     } catch (err) { /* keeps the static crop list */ }
@@ -100,6 +147,15 @@
     }
   }
 
+  let shortageHa = 0;
+  function shortageText(r) {
+    const area = +$('water-area').value, perHa = r.demand_hm3 * 1e6 / area;
+    shortageHa = r.balance_hm3 < 0 ? (-r.balance_hm3 * 1e6) / perHa : 0;
+    highlightShortage();
+    if (!shortageHa) return '';
+    return `<p class="text-xs text-rose-200 bg-rose-500/10 border border-rose-500/40 rounded-lg px-3 py-2 mb-3">Faltan ${fmt(-r.balance_hm3)} millones de m³: con esta mezcla alcanza para unas <b>${fmt(area - shortageHa)} ha</b>, o sea <b>${fmt(shortageHa)} ha quedarían sin riego</b> si no se cambia nada. En el mapa, en rojo, las zonas que más sufrieron en los años secos: serían las primeras en notarlo.</p>`;
+  }
+
   function renderWater(r) {
     const use = r.use_pct;
     const tone = use <= 90 ? ['emerald', 'Alcanza el agua'] : use <= 100 ? ['amber', 'Alcanza con poco margen'] : ['rose', 'No alcanza'];
@@ -116,6 +172,7 @@
         <div class="absolute inset-y-0 w-0.5 bg-white/80" style="left:${100 * 100 / maxW}%"></div>
       </div>
       <p class="text-[11px] text-slate-400 mb-3">Las plantas piden ${fmt(r.demand_hm3)} millones de m³ y llegan ${fmt(r.cap_hm3)} millones de m³ (${r.balance_hm3 >= 0 ? 'sobran' : 'faltan'} ${fmt(Math.abs(r.balance_hm3))}). La línea blanca marca el 100 % del agua disponible.</p>
+      ${shortageText(r)}
       <ul class="text-xs text-slate-300 flex flex-col gap-1 mb-3">${crops}</ul>
       <details class="text-[11px] text-slate-400"><summary class="cursor-pointer text-slate-300">Qué es supuesto</summary>
         <ul class="list-disc pl-4 mt-1 flex flex-col gap-1">${r.assumptions.map((a) => `<li>${a}</li>`).join('')}</ul></details>`;
@@ -134,6 +191,7 @@
     $('aud-farmer').setAttribute('aria-selected', a === 'farmer');
     $('aud-junta').setAttribute('aria-selected', a === 'junta');
     ['view-tabs', 'llm-panel'].forEach((id) => $(id) && $(id).classList.toggle('hidden', a === 'junta'));
+    showVulnerability(a === 'junta');
     if (a === 'junta') {
       $('view-rotations').classList.add('hidden');
       $('view-pareto').classList.add('hidden'); $('view-pareto').classList.remove('flex');
@@ -160,11 +218,55 @@
   /* "¿Por qué esta rotación?": ask the backend for a plain-language version (LLM if configured, template otherwise) */
   let explainSeq = 0;
   const originalRender = window.renderParetoAndLLM;
+  /* "¿Cabe en tu agua?": month by month, water each campaign asks for vs water that reaches a hectare */
+  let fitCap = 100, fitSeq = 0, fitLast = null;
+  const MES = ['E', 'F', 'M', 'A', 'M', 'J', 'J', 'A', 'S', 'O', 'N', 'D'];
+  function miniChart(c, supply, top) {
+    const W = 240, H = 96, bw = W / 12, y = (v) => H - (v / top) * (H - 8);
+    const bars = c.demanda_m3_ha.map((v, i) => `<rect x="${i * bw + 2}" y="${y(v)}" width="${bw - 4}" height="${H - y(v)}" rx="2" fill="${v > supply[i] ? '#f97316' : '#38bdf8'}"/>`).join('');
+    const line = supply.map((v, i) => `${i === 0 ? 'M' : 'L'}${i * bw + 2} ${y(v)} L${(i + 1) * bw - 2} ${y(v)}`).join(' ');
+    const labels = MES.map((m, i) => `<span style="width:${100 / 12}%" class="inline-block text-center">${m}</span>`).join('');
+    return `<div><p class="text-[11px] text-slate-200 font-semibold">${c.cultivo} <span class="font-normal text-slate-400">· siembra en ${c.mes_siembra} · ${fmt(c.total_m3_ha)} m³/ha</span></p>
+      <svg viewBox="0 0 ${W} ${H}" class="w-full h-auto mt-1" role="img" aria-label="${c.cultivo}: ${c.meses_con_deficit.length} meses piden más agua de la que llega">${bars}<path d="${line}" fill="none" stroke="#e2e8f0" stroke-width="2"/></svg>
+      <div class="text-[9px] text-slate-500 leading-none">${labels}</div>
+      <p class="text-[10px] mt-1 ${c.cabe_en_el_anio ? (c.meses_con_deficit.length ? 'text-amber-300' : 'text-emerald-300') : 'text-rose-300'}">${c.cabe_en_el_anio ? (c.meses_con_deficit.length ? 'Cabe en el año; falta en ' + c.meses_con_deficit.length + ' meses' : 'Cabe todos los meses') : 'No cabe en el año'}</p></div>`;
+  }
+  async function drawWaterFit(sequence) {
+    const box = $('water-fit-charts');
+    if (!box) return;
+    document.querySelectorAll('.fit-cap').forEach((b) => {
+      b.className = 'fit-cap px-2 py-0.5 rounded-md border text-[11px] font-semibold ' + (+b.dataset.cap === fitCap ? 'bg-sky-500/20 border-sky-400 text-white' : 'bg-p3-surface border-slate-700 text-slate-400');
+    });
+    fitLast = sequence;
+    const seq = ++fitSeq;
+    try {
+      const r = await getJson(`/api/model/calendar?sequence=${encodeURIComponent(sequence.join(','))}&cap_pct=${fitCap}`);
+      if (seq !== fitSeq) return;
+      const top = Math.max(...r.entrega_m3_ha, ...r.campanas.flatMap((c) => c.demanda_m3_ha)) * 1.08;
+      box.innerHTML = r.campanas.map((c) => miniChart(c, r.entrega_m3_ha, top)).join('');
+      $('water-fit-summary').textContent = r.resumen + ` Te llegan unos ${fmt(r.entrega_anual_m3_ha)} m³/ha al año.`;
+    } catch (err) { if (seq === fitSeq) { box.innerHTML = ''; $('water-fit-summary').textContent = 'No se pudo calcular (servicio sin conexión).'; } }
+  }
+  /* One 'water of the year' for both views: the farmer's buttons and the Junta's slider move the same value */
+  let yearTimer = null;
+  function setYearWater(pct, fromSlider) {
+    fitCap = pct;
+    if (!fromSlider && $('water-cap')) { $('water-cap').value = pct; schedule(); }
+    styleFitButtons();
+    clearTimeout(yearTimer);
+    yearTimer = setTimeout(() => { if (fitLast) drawWaterFit(fitLast); refreshRanking(); }, 200);
+  }
+  document.addEventListener('click', (e) => {
+    const b = e.target.closest('.fit-cap');
+    if (b) setYearWater(+b.dataset.cap);
+  });
+
   window.renderParetoAndLLM = function () {
     originalRender();
     const sel = state.currentRanked[state.selectedRotationIdx] || state.currentRanked[0];
     const box = $('llm-rationale-text');
-    if (!sel || !box || !apiUp || !String(sel.id).startsWith('gen-')) return;
+    if (sel && apiUp) drawWaterFit(sel.sequence.slice(1));
+    if (!sel || !box || !apiUp || !(String(sel.id).startsWith('gen-') || sel.id === 'actual')) return;
     let tag = $('llm-source');
     if (!tag) { tag = document.createElement('p'); tag.id = 'llm-source'; tag.className = 'text-[10px] text-slate-500 mt-1.5'; box.after(tag); }
     tag.textContent = 'Redactando…';
@@ -228,7 +330,7 @@
     } catch (err) { if (box) box.textContent = 'No se pudo consultar el satélite (servicio sin conexión).'; }
   }
   // replace the old fixed rectangle coloured by the ranking: the map now shows real satellite data
-  window.drawParcelPolygon = function () { drawPixel(); };
+  window.drawParcelPolygon = function () { if (audience !== 'junta') drawPixel(); };
 
   /* Map button: hiding the map gives its width to the other two columns */
   const THREE = 'lg:grid-cols-[minmax(280px,25%)_minmax(0,1fr)_minmax(340px,28%)]', TWO = 'lg:grid-cols-[minmax(280px,25%)_minmax(0,1fr)]';
@@ -242,8 +344,51 @@
   const originalToggle = window.toggleParcelMap;
   window.toggleParcelMap = function () { originalToggle(); syncMapColumn(); };
 
-  window.FieldShiftApi = { refreshRanking, runWater: schedule, setAudience, isUp: () => apiUp };
+  let shortLayer = null;
+  async function highlightShortage() {
+    if (typeof parcelMap === 'undefined' || !parcelMap) return;
+    if (shortLayer) { parcelMap.removeLayer(shortLayer); shortLayer = null; }
+    if (audience !== 'junta' || !shortageHa || !vulnData || !vulnData.disponible) return;
+    const n = Math.min(vulnData.puntos.length, Math.round(shortageHa / vulnData.pixel_ha));
+    const worst = [...vulnData.puntos].sort((a, b) => a[2] - b[2]).slice(0, n);
+    shortLayer = L.layerGroup(worst.map(([la, lo]) => L.circleMarker([la, lo], { radius: 3.5, color: '#fecaca', weight: 1, fillColor: '#dc2626', fillOpacity: 0.9 })));
+    shortLayer.addTo(parcelMap);
+  }
+
+  /* Junta view: where a year with less water hits hardest (greenness lost in 2014, 2016, 2023, per pixel) */
+  let vulnLayer = null, vulnData = null;
+  const VULN_COLOR = { alta: '#f97316', media: '#facc15', baja: '#38bdf8', cambio: '#94a3b8' };
+  async function showVulnerability(on) {
+    if (typeof parcelMap === 'undefined' || !parcelMap) return;
+    $('map-legend-farmer') && $('map-legend-farmer').classList.toggle('hidden', on);
+    $('map-legend-junta') && $('map-legend-junta').classList.toggle('hidden', !on);
+    if (vulnLayer) { parcelMap.removeLayer(vulnLayer); vulnLayer = null; }
+    if (shortLayer) { parcelMap.removeLayer(shortLayer); shortLayer = null; }
+    if (!on) { irrigatedZone = null; showIrrigated(); drawPixel(); return; }
+    if (irrigatedLayer) { parcelMap.removeLayer(irrigatedLayer); irrigatedLayer = null; irrigatedZone = null; }
+    if (pixelLayer) { parcelMap.removeLayer(pixelLayer); pixelLayer = null; }
+    const box = $('pixel-info');
+    try {
+      if (!vulnData || vulnData.zone !== state.zone) vulnData = { zone: state.zone, ...(await getJson('/api/model/vulnerability?zone=' + state.zone)) };
+      if (!vulnData.disponible) { if (box) box.textContent = vulnData.mensaje; return; }
+      vulnLayer = L.layerGroup(vulnData.puntos.map(([la, lo, c, lv]) => L.circleMarker([la, lo], { radius: lv === 'alta' ? 4 : 2.5, stroke: false, fillColor: VULN_COLOR[lv], fillOpacity: lv === 'baja' ? 0.35 : (lv === 'cambio' ? 0.7 : 0.85) })
+        .bindTooltip(lv === 'cambio' ? `Bajó para siempre: ${fmt(c, 0)} % de verdor entre 2013-2015 y 2022-2024 (¿ciudad o abandono?)` : `En años con menos agua este cuadro cambió ${c > 0 ? '+' : ''}${fmt(c, 1)} % de verdor`)));
+      vulnLayer.addTo(parcelMap);
+      highlightShortage();
+      const ha = vulnData.ha, y = vulnData.ha_con_caida_15_por_anio;
+      if (box) box.innerHTML = `<b class="text-white">¿Dónde golpea más un año con menos agua?</b> Comparando cada cuadro consigo mismo en 2014, 2016 y 2023: ` +
+        `<b class="text-orange-300">${fmt(ha.alta)} ha pierden mucho</b> verdor y se recuperan después, ${fmt(ha.media)} ha pierden algo y ${fmt(ha.baja)} ha aguantan. ` +
+        `En gris, ${fmt(ha.cambio)} ha que bajaron para siempre (ciudad que crece o chacras abandonadas): no se cuentan como sequía. ` +
+        `Las más sensibles están sobre todo al <b>${vulnData.sector_mas_sensible}</b> de la pampa. ` +
+        `Hectáreas con 15 % o más de caída: 2014 ${fmt(y['2014'])} ha · 2016 ${fmt(y['2016'])} ha · 2023 ${fmt(y['2023'])} ha.` +
+        `<br><span class="text-slate-400">Si en 2027 llega menos agua, estas zonas son las primeras a vigilar o priorizar en los turnos.</span>` +
+        `<br><span class="text-slate-500 text-[10px]">${vulnData.fuente} El verdor también cae por plagas o cambios de cultivo: es una señal, no una prueba.</span>`;
+    } catch (err) { if (box) box.textContent = 'No se pudo consultar el satélite (servicio sin conexión).'; }
+  }
+
+  window.FieldShiftApi = { refreshRanking, runWater: schedule, setAudience, isUp: () => apiUp, badge };
   window.addEventListener('DOMContentLoaded', () => {
+    if ($('water-cap')) $('water-cap').addEventListener('input', () => setYearWater(+$('water-cap').value, true));
     ['water-mix', 'water-cap', 'water-area', 'water-eff', 'water-et0'].forEach((id) => {
       const el = $(id);
       if (el) el.addEventListener(id === 'water-cap' ? 'input' : 'change', schedule);

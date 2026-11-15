@@ -613,13 +613,16 @@
       }
 
       // Renderizar las 3 principales en la vista de Rotaciones Recomendadas
+      // top 3 plus the farmer's current way (id 'actual') so the current practice is always compared
       const topThree = finalRanked.slice(0, 3);
+      const currentWay = finalRanked.find(r => r.id === 'actual');
+      if (currentWay && !topThree.includes(currentWay)) topThree.push(currentWay);
       const container = document.getElementById('rotations-list');
       container.innerHTML = topThree.map((rot, idx) => `
-        <div onclick="selectRotationForInspection(${idx}, false)" title="Haz clic para ver por qué" class="bg-[#0d1015] border border-slate-700/75 hover:border-slate-400 rounded-2xl px-4 py-2.5 transition cursor-pointer group">
+        <div onclick="selectRotationForInspection(${finalRanked.indexOf(rot)}, false)" title="Haz clic para ver por qué" class="bg-[#0d1015] border border-slate-700/75 hover:border-slate-400 rounded-2xl px-4 py-2.5 transition cursor-pointer group">
           <div class="flex items-center justify-between gap-2 mb-2.5">
             <div class="text-sm sm:text-[15px] font-bold text-white tracking-tight">
-              <span class="font-mono-tech text-slate-400 mr-1.5">#${idx + 1}</span>
+              <span class="font-mono-tech text-slate-400 mr-1.5">${rot.id === 'actual' ? 'Hoy' : '#' + (idx + 1)}</span>
               ${rot.sequence.join(' <span class="text-slate-500 mx-1">&gt;</span> ')}
             </div>
             <span class="text-[10px] font-semibold text-slate-400 group-hover:text-indigo-300 transition">
@@ -627,6 +630,7 @@
             </span>
           </div>
 
+          ${window.FieldShiftApi && FieldShiftApi.badge ? FieldShiftApi.badge(rot) : ''}
           <div class="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
             <!-- Barras segmentadas Display P3 -->
             <div class="flex flex-col gap-1.5 text-xs">

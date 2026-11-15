@@ -58,11 +58,16 @@ def _stars(x):
     return max(1, min(5, round(1 + 4 * x)))
 
 
-def generate(current, w_water=80, w_soil=65, w_income=45, ece=2.8, top=5, site=None):
+def generate(current, w_water=80, w_soil=65, w_income=45, ece=2.8, top=5, site=None, allowed=None, cap_pct=100.0):
     """First 3 items: best by weighted score. The rest: alternatives along the income-soil Pareto front.
 
     site (optional, from pixeles.site): the tapped MODIS pixel. (1) If its greenness dropped in dry years, water weighs
     50 % more; (2) desert or mixed pixels lower the confidence; (3) water per hectare is scaled by local ET / zone ET.
+
+    allowed (optional): the crops the farmer plans to sow. Rotations use only those; when no rotation of them follows
+    the rules (e.g. only potato), the answer is the best rotations that add ONE crop, saying which one. The farmer's
+    current way (the current crop every campaign) is always appended last, for comparison.
+    Scores are normalised over all valid rotations, so they compare across these cases.
     """
     adjust = []
     sensitive = bool(site and site["peor_anio_seco_pct"] is not None and site["peor_anio_seco_pct"] <= -5)
@@ -90,10 +95,10 @@ def generate(current, w_water=80, w_soil=65, w_income=45, ece=2.8, top=5, site=N
                      "yrel": st.mean(_salt_yield(c, ece) for c in seq),
                      "inc": [income[c][0] for c in seq if c in income],
                      "inc_src": [income[c][1] for c in seq if c in income]})
-    ok = [r for r in rows if not r["bad"]] or rows
+    ok = [r for r in rows if not r["bad"]]
     known = [v for v, _ in income.values()]
     fill = st.median(known)
-    for r in ok:
+    for r in rows:
         # salinity lowers the yield, so it lowers the income of each crop by its FAO-29 relative yield
         vals = [(income[c][0] if c in income else fill) * _salt_yield(c, ece) for c in r["seq"]]
         r["income"] = st.mean(vals)
@@ -101,13 +106,30 @@ def generate(current, w_water=80, w_soil=65, w_income=45, ece=2.8, top=5, site=N
     nl, nh = min(r["n"] for r in ok), max(r["n"] for r in ok)
     ilo, ihi = min(r["income"] for r in ok), max(r["income"] for r in ok)
     tot = (w_water + w_soil + w_income) or 1
-    for r in ok:
-        r["s_water"] = 1 - _norm(r["water"], wl, wh)
+    for r in rows:
+        r["s_water"] = min(1.0, max(0.0, 1 - _norm(r["water"], wl, wh)))
         # soil = what the rotation does to the soil (nitrogen, rules); salinity is a condition of the plot, it goes to income
         r["s_soil"] = min(1.0, 0.85 * _norm(r["n"], nl, nh) + 0.15 * min(1, len(r["good"])))
-        r["s_inc"] = _norm(r["income"], ilo, ihi)
+        r["s_soil"] = max(0.0, r["s_soil"])
+        r["s_inc"] = min(1.0, max(0.0, _norm(r["income"], ilo, ihi)))
         r["score"] = (w_water * r["s_water"] + w_soil * r["s_soil"] + w_income * r["s_inc"]) / tot
     ok.sort(key=lambda r: -r["score"])
+    # which rotations may be shown: all, only the farmer's crops, or the farmer's crops plus one suggested crop
+    all_valid = list(ok)
+    mode, added = "libre", {}
+    allowed_set = {c for c in (allowed or []) if c in CANDIDATES}
+    if allowed_set:
+        inside = [r for r in ok if set(r["seq"]) <= allowed_set]
+        if inside:
+            ok, mode = inside, "lista"
+        else:
+            mode, by_extra = "sugerencia", {}
+            for r in ok:                     # ok is sorted: the first rotation per set of added crops is its best
+                extra = frozenset(set(r["seq"]) - allowed_set)
+                if 1 <= len(extra) <= 2:
+                    by_extra.setdefault(extra, r)
+            ok = sorted(by_extra.values(), key=lambda r: -r["score"])[:3]
+            added = {id(r): " y ".join(sorted(x)) for x, r in by_extra.items()}
     # Pareto front over ALL valid rotations (income vs soil): a rotation is dominated if another is at least as good on both
     front = [r for r in ok if not any(o["s_inc"] >= r["s_inc"] and o["s_soil"] >= r["s_soil"] and
                                       (o["s_inc"] > r["s_inc"] or o["s_soil"] > r["s_soil"]) for o in ok)]
@@ -120,16 +142,34 @@ def generate(current, w_water=80, w_soil=65, w_income=45, ece=2.8, top=5, site=N
             best.append(r)
         if len(best) == 3:
             break
-    spread = sorted(front, key=lambda r: r["s_soil"])
-    for pos in (0.0, 0.25, 0.5, 0.75, 1.0):   # trade-off alternatives spread along the front, so the chart shows a front
+    spread = sorted(front, key=lambda r: r["s_soil"]) if mode != "sugerencia" else []
+    for pos in ((0.0, 0.25, 0.5, 0.75, 1.0) if spread else ()):   # trade-off alternatives spread along the front, so the chart shows a front
         r = spread[round(pos * (len(spread) - 1))]
         k = frozenset(r["seq"])
         if k not in seen and len(best) < top + 1:
             seen.add(k)
             best.append(r)
-    avg_w = st.mean(r["water"] for r in ok)
+    # water that reaches one hectare in a year vs what each campaign asks (agua_parcela, month by month)
+    import agua_parcela
+    supply = agua_parcela.delivery_m3_ha(cap_pct)
+    et0s = [sim.load_et0_monthly(m) for m in ("hargreaves", "pm")]
+    monthly = {c: agua_parcela.crop_monthly(c, crops, et0s)[0] for c in set(c for r in rows for c in r["seq"]) | {current}}
+    monthly = {c: [v * factor for v in prof] for c, prof in monthly.items()}
+
+    def fit(seq):
+        over = [c for c in dict.fromkeys(seq) if sum(monthly[c]) > sum(supply)]
+        short = max(sum(d > s_ for d, s_ in zip(monthly[c], supply)) for c in seq)
+        return {"llega_m3_ha_anio": round(sum(supply)), "cap_pct": cap_pct, "cabe_en_el_anio": not over,
+                "no_caben": over, "max_meses_con_deficit": short,
+                "pide_max_m3_ha": round(max(sum(monthly[c]) for c in seq))}
+
+    current_way = next(r for r in rows if r["seq"] == (current,) * 3)
+    if current_way not in best:
+        best.append(current_way)
+    avg_w = st.mean(r["water"] for r in all_valid)
     out = []
     for i, r in enumerate(best):
+        is_current = r is current_way
         real_n = sum(c in real_income_crops() for c in r["seq"])
         missing = [c for c in r["seq"] if c not in income]
         conf = "BAJA" if (r["bad"] or (poor_site and site["tipo"].startswith("desierto"))) else ("ALTA" if not missing and real_n >= 2 and not poor_site else "MEDIA")
@@ -145,16 +185,18 @@ def generate(current, w_water=80, w_soil=65, w_income=45, ece=2.8, top=5, site=N
             "ingreso_prudente_s": round(r["income"]), "fuentes_ingreso": sorted(set(r["inc_src"])),
             "sin_dato_ingreso": missing, "reglas_ok": not r["bad"], "reglas_rotas": r["bad"], "a_favor": r["good"],
             "parcela": site, "ajustes_parcela": adjust,
+            "modo": mode, "agrega": added.get(id(r)), "es_forma_actual": is_current,
+            "agua_cabe": fit(r["seq"]),
         }
         rationale = explain_template(facts)
         out.append({
-            "id": f"gen-{i + 1}", "sequence": [current, *r["seq"]], "confidence": conf, "rationale": rationale, "facts": facts,
+            "id": "actual" if is_current else f"gen-{i + 1}", "sequence": [current, *r["seq"]], "confidence": conf, "rationale": rationale, "facts": facts,
             "soil_impact": f"Balance de nitrógeno de la rotación: {r['n']:+.0f} kg/ha (ajo y cebolla: extracción medida por el INIA; los demás, valores del modelo sintético). "
                            f"Rendimiento esperado por salinidad (CE {ece} dS/m): {100 * r['yrel']:.0f} % (FAO-29).",
             "water_balance": f"Usa {r['water']:,.0f} m³/ha por campaña, {100 * (r['water'] / avg_w - 1):+.0f} % frente al promedio de las alternativas (eficiencia de riego {sim.EFFICIENCY:.0%}, calibrada).",
             "adj_water": _stars(r["s_water"]), "adj_soil": _stars(r["s_soil"]), "adj_income": _stars(r["s_inc"]),
             "score": round(5 * r["score"], 2), "match_pct": max(42, min(98, round(100 * r["score"]))),
-            "pareto_x": round(100 * r["s_inc"]), "pareto_y": round(100 * r["s_soil"]), "pareto_optimal": id(r) in front_ids,
+            "pareto_x": round(100 * r["s_inc"]), "pareto_y": round(100 * r["s_soil"]), "pareto_optimal": id(r) in front_ids and not is_current,
         })
     return out
 
@@ -181,7 +223,15 @@ def explain_template(f):
     if hit:
         give.append(f"con una salinidad de {f['ce_dsm']} dS/m, " + ", ".join(f"{c} rinde {v} %" for c, v in hit.items())
                     + " de lo normal, y eso ya está descontado del ingreso")
-    text = ("Por qué la recomendamos: " + "; ".join(win) + ". ") if win else "Es una opción equilibrada, sin un punto fuerte claro. "
+    if f.get("es_forma_actual"):
+        lead = f"Si sigues sembrando {f['rotacion'][0]} cada campaña (tu forma actual, para comparar): "
+        text = lead + ("; ".join(win + give) + ". " if win or give else "")
+        give = []
+    elif f.get("agrega"):
+        text = (f"Con solo tus cultivos no hay rotación que cumpla las reglas. Si agregas {f['agrega']}, "
+                + ("esta rotación " + "; ".join(win) + ". " if win else "esta rotación ya cumple las reglas. "))
+    else:
+        text = ("Por qué la recomendamos: " + "; ".join(win) + ". ") if win else "Es una opción equilibrada, sin un punto fuerte claro. "
     if give:
         text += "Qué cede: " + "; ".join(give) + ". "
     text += "Cumple las reglas de rotación." if f["reglas_ok"] else "Ojo: " + " ".join(f["reglas_rotas"])

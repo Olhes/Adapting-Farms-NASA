@@ -7,6 +7,10 @@ from app.modules.simulation.domain import SimulationRequest, SimulationResult
 router = APIRouter(prefix="/api/model", tags=["model"])
 
 
+def _split(crops: str | None) -> list[str] | None:
+    return [c.strip() for c in crops.split(",") if c.strip()] if crops else None
+
+
 @router.get("/crops")
 def list_crops() -> list[str]:
     return service.known_crops()
@@ -40,9 +44,11 @@ def rotations(
     lat: float | None = None,
     lon: float | None = None,
     zone: str = "majes",
+    crops: str | None = Query(None, description="cultivos que el agricultor piensa sembrar, separados por coma"),
+    cap_pct: float = Query(100, ge=50, le=120, description="agua del año en % de lo normal"),
 ) -> list[dict]:
     try:
-        return service.generate_rotations(crop, water, soil, income, salinity, lat, lon, zone)
+        return service.generate_rotations(crop, water, soil, income, salinity, lat, lon, zone, _split(crops), cap_pct)
     except ValueError as err:
         raise HTTPException(status_code=404, detail=str(err)) from err
 
@@ -58,9 +64,11 @@ def explain(
     lat: float | None = None,
     lon: float | None = None,
     zone: str = "majes",
+    crops: str | None = Query(None, description="cultivos que el agricultor piensa sembrar, separados por coma"),
+    cap_pct: float = Query(100, ge=50, le=120, description="agua del año en % de lo normal"),
 ) -> dict:
     try:
-        rotations = service.generate_rotations(crop, water, soil, income, salinity, lat, lon, zone)
+        rotations = service.generate_rotations(crop, water, soil, income, salinity, lat, lon, zone, _split(crops), cap_pct)
     except ValueError as err:
         raise HTTPException(status_code=404, detail=str(err)) from err
     match = next((r for r in rotations if r["id"] == rotation_id), None)
@@ -79,3 +87,23 @@ def point(lat: float = Query(..., ge=-90, le=90), lon: float = Query(..., ge=-18
 def irrigated(zone: str = "majes") -> list:
     """Centres of irrigated pixels (mean NDVI 2013-2024 >= 0.3), for the map overlay."""
     return service.irrigated_points(zone)
+
+
+@router.get("/calendar")
+def calendar(
+    sequence: str = Query(..., description="cultivos de las próximas campañas, separados por coma"),
+    cap_pct: float = Query(100, ge=50, le=120),
+    area_ha: float = Query(15_900, gt=0),
+) -> dict:
+    """Month by month: water each campaign asks for vs the water that reaches each hectare."""
+    try:
+        return service.water_calendar(_split(sequence) or [], cap_pct, area_ha)
+    except ValueError as err:
+        raise HTTPException(status_code=404, detail=str(err)) from err
+
+
+
+@router.get("/vulnerability")
+def vulnerability(zone: str = "majes") -> dict:
+    """Irrigated pixels classified by how much greenness they lost in the years with less water (Majes)."""
+    return service.vulnerability(zone)

@@ -133,3 +133,39 @@ def test_explanation_only_uses_numbers_from_the_facts():
     r = generador.generate("Quinua", site=pixeles.site(*CIEPA))[0]
     allowed = norm(str(r["facts"])) | {"3", "50", "2", "8", "28"}   # "tres campañas", "50 % más", "2,8 dS/m"
     assert norm(r["rationale"]) <= allowed
+
+
+# ---------- the farmer's own list of crops ----------
+
+def test_rotations_use_only_the_farmers_crops_and_end_with_the_current_way():
+    out = generador.generate("Papa", allowed=["Papa", "Cebolla", "Haba"])
+    assert out[-1]["id"] == "actual" and out[-1]["sequence"] == ["Papa"] * 4
+    for r in out[:-1]:
+        assert set(r["sequence"]) <= {"Papa", "Cebolla", "Haba"}
+        assert not rotacion.check(r["sequence"][1:], previous="Papa")[0]
+
+
+def test_only_potato_never_recommends_potato_forever():
+    out = generador.generate("Papa", allowed=["Papa"])
+    suggestions = [r for r in out if r["id"] != "actual"]
+    assert suggestions and all(r["facts"]["agrega"] for r in suggestions)
+    assert all(not rotacion.check(r["sequence"][1:], previous="Papa")[0] for r in suggestions)
+    assert out[-1]["confidence"] == "BAJA" and "forma actual" in out[-1]["rationale"]
+
+
+# ---------- water that reaches each hectare, month by month ----------
+
+import agua_parcela  # noqa: E402
+
+
+def test_monthly_supply_adds_up_to_the_yearly_delivery():
+    r = agua_parcela.calendar(["Papa"])
+    assert r["entrega_anual_m3_ha"] == pytest.approx(sim.CAP_NORMAL_HM3 * 1e6 / sim.AREA_HA, rel=0.01)
+    assert agua_parcela.calendar(["Papa"], cap_pct=88)["entrega_anual_m3_ha"] < r["entrega_anual_m3_ha"]
+
+
+def test_alfalfa_does_not_fit_the_year_and_crops_only_ask_water_in_their_cycle():
+    alfalfa = agua_parcela.calendar(["Alfalfa"])["campanas"][0]
+    assert not alfalfa["cabe_en_el_anio"]
+    papa = agua_parcela.calendar(["Papa"])["campanas"][0]
+    assert papa["cabe_en_el_anio"] and sum(v == 0 for v in papa["demanda_m3_ha"]) >= 7   # ~4-month cycle

@@ -38,3 +38,17 @@ def test_explanation_falls_back_to_the_template_without_a_key(monkeypatch):
 
 def test_point_outside_zone():
     assert client.get("/api/model/point", params={"lat": -12, "lon": -77}).json()["inside"] is False
+
+
+def test_planned_crops_and_unknown_crop():
+    ok = client.get("/api/model/rotations", params={"crop": "Papa", "crops": "Papa,Haba,Cebolla"}).json()
+    assert all(set(r["sequence"]) <= {"Papa", "Haba", "Cebolla"} for r in ok)
+    bad = client.get("/api/model/rotations", params={"crop": "Papa", "crops": "Papa,Mango"})
+    assert bad.status_code == 404 and "Mango" in bad.json()["detail"]
+
+
+
+def test_vulnerability_map_is_majes_only():
+    v = client.get("/api/model/vulnerability", params={"zone": "majes"}).json()
+    assert v["disponible"] and sum(v["cuadros"].values()) == len(v["puntos"]) > 3000
+    assert client.get("/api/model/vulnerability", params={"zone": "tambo"}).json()["disponible"] is False
