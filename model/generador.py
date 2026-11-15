@@ -58,16 +58,29 @@ def _stars(x):
     return max(1, min(5, round(1 + 4 * x)))
 
 
-def generate(current, w_water=80, w_soil=65, w_income=45, ece=2.8, top=5):
-    """First 3 items: best by weighted score. The rest: alternatives along the income-soil Pareto front."""
+def generate(current, w_water=80, w_soil=65, w_income=45, ece=2.8, top=5, site=None):
+    """First 3 items: best by weighted score. The rest: alternatives along the income-soil Pareto front.
+
+    site (optional, from pixeles.site): the tapped MODIS pixel. (1) If its greenness dropped in dry years, water weighs
+    50 % more; (2) desert or mixed pixels lower the confidence; (3) water per hectare is scaled by local ET / zone ET.
+    """
+    adjust = []
+    sensitive = bool(site and site["peor_anio_seco_pct"] is not None and site["peor_anio_seco_pct"] <= -5)
+    if sensitive:
+        w_water = w_water * 1.5
+        adjust.append(f"tu zona perdió hasta {abs(site['peor_anio_seco_pct'])} % de verdor en un año con menos agua, así que el agua pesa 50 % más")
+    factor = site["factor_agua"] if site and site["factor_agua"] else 1.0
+    if site and site["factor_agua"]:
+        adjust.append(f"tu zona usa {site['et_mm']} mm de agua al año frente a {site['et_zona_mm']} mm del promedio, así que el agua por hectárea se ajustó ×{factor:.2f}")
+    poor_site = bool(site and site["tipo"] != "regado")
     crops, n_bal, income = _catalog()
     et = {m: sim.load_et0_monthly(m) for m in ("hargreaves", "pm")}
     water = {}
     for c in CANDIDATES:
         if c == "Paprika":
-            water[c] = sim.MEASURED["Paprika"]
+            water[c] = sim.MEASURED["Paprika"] * factor
         else:
-            water[c] = st.mean(sim.water_m3_ha(c, crops, et[m], "calculada", sim.EFFICIENCY) for m in et)
+            water[c] = factor * st.mean(sim.water_m3_ha(c, crops, et[m], "calculada", sim.EFFICIENCY) for m in et)
     rows = []
     for seq in itertools.product(CANDIDATES, repeat=3):
         bad, good = rotacion.check(seq, previous=current)
@@ -119,7 +132,7 @@ def generate(current, w_water=80, w_soil=65, w_income=45, ece=2.8, top=5):
     for i, r in enumerate(best):
         real_n = sum(c in real_income_crops() for c in r["seq"])
         missing = [c for c in r["seq"] if c not in income]
-        conf = "BAJA" if r["bad"] else ("ALTA" if not missing and real_n >= 2 else "MEDIA")
+        conf = "BAJA" if (r["bad"] or (poor_site and site["tipo"].startswith("desierto"))) else ("ALTA" if not missing and real_n >= 2 and not poor_site else "MEDIA")
         stars = {"agua": _stars(r["s_water"]), "suelo": _stars(r["s_soil"]), "ingreso": _stars(r["s_inc"])}
         facts = {
             "rotacion": [current, *r["seq"]], "estrellas": stars,
@@ -131,6 +144,7 @@ def generate(current, w_water=80, w_soil=65, w_income=45, ece=2.8, top=5):
             "rinde_por_sal": {c: round(100 * _salt_yield(c, ece)) for c in r["seq"]},
             "ingreso_prudente_s": round(r["income"]), "fuentes_ingreso": sorted(set(r["inc_src"])),
             "sin_dato_ingreso": missing, "reglas_ok": not r["bad"], "reglas_rotas": r["bad"], "a_favor": r["good"],
+            "parcela": site, "ajustes_parcela": adjust,
         }
         rationale = explain_template(facts)
         out.append({
@@ -178,6 +192,12 @@ def explain_template(f):
         gaps.append(f"no hay dato de ingreso de {', '.join(f['sin_dato_ingreso'])}")
     gaps.append("la salinidad de tu parcela no está medida (usamos 2,8 dS/m de referencia)" if f["ce_dsm"] == 2.8
                 else f"la salinidad de {f['ce_dsm']} dS/m la ingresaste tú; no la verificamos")
+    p = f.get("parcela")
+    if p:
+        if p["tipo"] != "regado":
+            text += f" Ojo: el satélite ve tu punto como {p['tipo']} (verdor {p['ndvi']}); revisa si ahí hay riego estable antes de sembrar."
+        if f.get("ajustes_parcela"):
+            text += " Ajustado a tu parcela: " + "; ".join(f["ajustes_parcela"]) + "."
     return text.strip() + " Qué no sabemos: " + "; ".join(gaps) + "."
 
 

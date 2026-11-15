@@ -133,3 +133,25 @@ def check_against_appeears(csv_path):
         row, col = math.floor((ULY - y) / NDVI_PIX), math.floor((x - ULX) / NDVI_PIX)
         bad += (row, col) != (int(float(r["MOD13Q1_061_Line_Y_250m"])), int(float(r["MOD13Q1_061_Sample_X_250m"])))
     return bad
+
+
+@lru_cache
+def zone_et_mean(zone="majes"):
+    """Mean yearly ET (mm) of the zone's pixels with ET data, 2013-2024: the reference for 'your plot uses more/less'."""
+    years, et = _et(zone)
+    return float(np.nanmean(et[[k for k, y in enumerate(years) if y < 2025]]))
+
+
+def site(lat, lon, zone="majes"):
+    """What the generator needs from the tapped pixel: kind, sensitivity to dry years, local ET vs zone mean."""
+    info = point_info(lat, lon, zone)
+    if not info.get("inside"):
+        return None
+    dry = [d["cambio_pct"] for d in info["anios_secos"].values()]
+    ratio = None
+    if info["et_mm_anual"]:
+        ratio = max(0.7, min(1.3, info["et_mm_anual"] / zone_et_mean(zone)))
+    return {"tipo": info["tipo"], "ndvi": info["ndvi_medio_2013_2024"],
+            "caida_anios_secos_pct": round(sum(dry) / len(dry), 1) if dry else None,
+            "peor_anio_seco_pct": min(dry) if dry else None,
+            "et_mm": info["et_mm_anual"], "et_zona_mm": round(zone_et_mean(zone)), "factor_agua": ratio}

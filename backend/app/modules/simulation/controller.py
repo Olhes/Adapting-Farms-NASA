@@ -37,9 +37,12 @@ def rotations(
     soil: int = Query(65, ge=0, le=100),
     income: int = Query(45, ge=0, le=100),
     salinity: float = Query(2.8, ge=0, le=30),
+    lat: float | None = None,
+    lon: float | None = None,
+    zone: str = "majes",
 ) -> list[dict]:
     try:
-        return service.generate_rotations(crop, water, soil, income, salinity)
+        return service.generate_rotations(crop, water, soil, income, salinity, lat, lon, zone)
     except ValueError as err:
         raise HTTPException(status_code=404, detail=str(err)) from err
 
@@ -52,9 +55,12 @@ def explain(
     soil: int = Query(65, ge=0, le=100),
     income: int = Query(45, ge=0, le=100),
     salinity: float = Query(2.8, ge=0, le=30),
+    lat: float | None = None,
+    lon: float | None = None,
+    zone: str = "majes",
 ) -> dict:
     try:
-        rotations = service.generate_rotations(crop, water, soil, income, salinity)
+        rotations = service.generate_rotations(crop, water, soil, income, salinity, lat, lon, zone)
     except ValueError as err:
         raise HTTPException(status_code=404, detail=str(err)) from err
     match = next((r for r in rotations if r["id"] == rotation_id), None)

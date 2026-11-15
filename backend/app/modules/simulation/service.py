@@ -62,10 +62,12 @@ def rotation_crops() -> dict:
     return {"crops": generador.CANDIDATES, "not_available": generador.NOT_AVAILABLE}
 
 
-def generate_rotations(crop: str, water: int, soil: int, income: int, salinity: float) -> list[dict]:
+def generate_rotations(crop: str, water: int, soil: int, income: int, salinity: float,
+                       lat: float | None = None, lon: float | None = None, zone: str = "majes") -> list[dict]:
     if crop not in generador.CANDIDATES:
         raise ValueError(f"Cultivo sin datos en el modelo: {crop}")
-    return generador.generate(crop, w_water=water, w_soil=soil, w_income=income, ece=salinity)
+    site = pixeles.site(lat, lon, zone) if lat is not None and lon is not None else None
+    return generador.generate(crop, w_water=water, w_soil=soil, w_income=income, ece=salinity, site=site)
 
 
 def point_info(lat: float, lon: float, zone: str) -> dict:

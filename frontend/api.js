@@ -4,6 +4,7 @@
 (function () {
   const API_BASE = (window.FIELD_SHIFT_API || (location.protocol.startsWith('http') ? location.origin : 'http://localhost:8765')).replace(/\/$/, '');
   let rankSeq = 0;
+  let sitePoint = null;   // [lat, lon] of the pixel the user tapped; rotations are adjusted to it
   let apiUp = false;   // true after the first successful call; while true, app.js does not paint its local table
 
   function setStatus(ok) {
@@ -35,7 +36,8 @@
     if (note) note.classList.toggle('hidden', state.zone === 'majes');
     try {
       const q = new URLSearchParams({ crop: state.currentCrop, water: state.priorities.water, soil: state.priorities.soil,
-                                      income: state.priorities.income, salinity: state.climate.salinity });
+                                      income: state.priorities.income, salinity: state.climate.salinity, zone: state.zone });
+      if (sitePoint) { q.set('lat', sitePoint[0]); q.set('lon', sitePoint[1]); }
       const ranked = await getJson('/api/model/rotations?' + q);   // rotations generated from rules + the water/soil/income model
       if (seq !== rankSeq) return;           // a newer request is in flight
       setStatus(true);
@@ -168,7 +170,8 @@
     tag.textContent = 'Redactando…';
     const seq = ++explainSeq;
     const q = new URLSearchParams({ crop: state.currentCrop, rotation_id: sel.id, water: state.priorities.water,
-                                    soil: state.priorities.soil, income: state.priorities.income, salinity: state.climate.salinity });
+                                    soil: state.priorities.soil, income: state.priorities.income, salinity: state.climate.salinity, zone: state.zone });
+    if (sitePoint) { q.set('lat', sitePoint[0]); q.set('lon', sitePoint[1]); }
     getJson('/api/model/explain?' + q).then((r) => {
       if (seq !== explainSeq) return;
       box.textContent = r.text;
@@ -201,13 +204,17 @@
     showIrrigated();
     const home = (ZONE_GEO[state.zone] || ZONE_GEO.majes).coords;
     const picked = parcelCenter && (parcelCenter[0] !== home[0] || parcelCenter[1] !== home[1]);
+    if (!picked && sitePoint) { sitePoint = null; refreshRanking(); }
     if (!picked) { if (box) box.innerHTML = 'Los puntos verdes son las zonas regadas que ve el satélite. <b class="text-white">Toca tu parcela</b> para ver su verdor, el agua que usa y cómo le fue en los años secos.'; return; }
     const [lat, lon] = parcelCenter || home;
     const seq = ++pointSeq;
     try {
       const r = await getJson(`/api/model/point?lat=${lat}&lon=${lon}&zone=${state.zone}`);
       if (seq !== pointSeq) return;
-      if (!r.inside) { if (box) box.textContent = r.message; return; }
+      if (!r.inside) { if (box) box.textContent = r.message; if (sitePoint) { sitePoint = null; refreshRanking(); } return; }
+      const changed = !sitePoint || sitePoint[0] !== lat || sitePoint[1] !== lon;
+      sitePoint = [lat, lon];
+      if (changed) refreshRanking();
       const color = KIND_COLOR[r.tipo] || '#64748b';
       pixelLayer = L.polygon(r.square, { color, fillColor: color, fillOpacity: 0.35, weight: 2 }).addTo(parcelMap);
       if (parcelCenter && parcelMap.getZoom() < 14) parcelMap.flyTo([lat, lon], 14, { duration: 0.6 });
@@ -216,6 +223,7 @@
       if (box) box.innerHTML = `<b class="text-white">Cuadro de ${fmt(r.pixel_ha, 1)} ha: ${r.tipo}.</b> Verdor medio (NDVI) 2013–2024: <b>${r.ndvi_medio_2013_2024 == null ? 's/d' : fmt(r.ndvi_medio_2013_2024, 2)}</b> (desierto ≈ 0,1; cultivo vigoroso ≥ 0,5)` +
         (r.et_mm_anual != null ? ` · Agua que usan las plantas y el suelo (ET): <b>${fmt(r.et_mm_anual)} mm al año</b>` : '') +
         (showDry && dry ? `<br>En años con menos agua, el verdor de este lugar cambió: ${dry}.` : '') +
+        `<br><b class="text-emerald-300">Las rotaciones se ajustaron a este punto</b> (mira «Ajustado a tu parcela» en el porqué).` +
         `<br><span class="text-slate-500 text-[10px]">${r.fuente}. El cuadro es más grande que muchas parcelas: describe el entorno de la tuya.</span>`;
     } catch (err) { if (box) box.textContent = 'No se pudo consultar el satélite (servicio sin conexión).'; }
   }
