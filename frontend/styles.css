@@ -1,0 +1,237 @@
+    /* =========================================================================
+       SISTEMA DE COLORES: FALLBACK sRGB + WIDE-GAMUT DISPLAY P3
+       ========================================================================= */
+    :root {
+      --bg-canvas: #0d1015;
+      --bg-surface: #141820;
+      --bg-surface-elevated: #191f2a;
+      --border-hairline: rgba(148, 163, 184, 0.16);
+
+      /* Fallbacks sRGB */
+      --p3-water: #2589f5;
+      --p3-water-glow: rgba(37, 137, 245, 0.35);
+      --p3-soil: #1ec95b;
+      --p3-soil-glow: rgba(30, 201, 91, 0.35);
+      --p3-income: #d98218;
+      --p3-income-glow: rgba(217, 130, 24, 0.35);
+
+      --p3-conf-high-bg: rgba(12, 83, 38, 0.85);
+      --p3-conf-high-border: #22c55e;
+      --p3-conf-high-text: #bbf7d0;
+
+      --p3-conf-med-bg: rgba(101, 63, 14, 0.85);
+      --p3-conf-med-border: #d97706;
+      --p3-conf-med-text: #fde68a;
+
+      --p3-conf-low-bg: rgba(127, 29, 29, 0.85);
+      --p3-conf-low-border: #ef4444;
+      --p3-conf-low-text: #fecaca;
+
+      --p3-llm-accent: #818cf8;
+      --p3-llm-bg: rgba(49, 46, 129, 0.28);
+    }
+
+    @supports (color: color(display-p3 1 1 1)) {
+      :root {
+        --bg-canvas: color(display-p3 0.051 0.063 0.082);
+        --bg-surface: color(display-p3 0.078 0.094 0.125);
+        --bg-surface-elevated: color(display-p3 0.102 0.122 0.162);
+
+        /* Colores Display P3 de gama amplia */
+        --p3-water: color(display-p3 0.14 0.56 0.98);
+        --p3-water-glow: color(display-p3 0.14 0.56 0.98 / 0.42);
+        --p3-soil: color(display-p3 0.12 0.82 0.38);
+        --p3-soil-glow: color(display-p3 0.12 0.82 0.38 / 0.42);
+        --p3-income: color(display-p3 0.88 0.54 0.10);
+        --p3-income-glow: color(display-p3 0.88 0.54 0.10 / 0.42);
+
+        --p3-conf-high-bg: color(display-p3 0.04 0.35 0.15 / 0.92);
+        --p3-conf-high-border: color(display-p3 0.14 0.84 0.40);
+        --p3-conf-high-text: color(display-p3 0.78 0.98 0.84);
+
+        --p3-conf-med-bg: color(display-p3 0.42 0.26 0.05 / 0.92);
+        --p3-conf-med-border: color(display-p3 0.90 0.56 0.12);
+        --p3-conf-med-text: color(display-p3 0.99 0.90 0.65);
+
+        --p3-conf-low-bg: color(display-p3 0.52 0.12 0.14 / 0.92);
+        --p3-conf-low-border: color(display-p3 0.95 0.26 0.28);
+        --p3-conf-low-text: color(display-p3 0.99 0.80 0.80);
+
+        --p3-llm-accent: color(display-p3 0.54 0.58 0.99);
+        --p3-llm-bg: color(display-p3 0.20 0.18 0.55 / 0.34);
+      }
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: var(--bg-canvas);
+      color: #f8fafc;
+      overflow-x: hidden;
+    }
+
+    .font-mono-tech {
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    /* Clases utilitarias conectadas a Display P3 */
+    .bg-p3-surface { background-color: var(--bg-surface); }
+    .bg-p3-elevated { background-color: var(--bg-surface-elevated); }
+
+    .block-water {
+      background-color: var(--p3-water);
+      box-shadow: 0 0 8px var(--p3-water-glow);
+    }
+    .block-soil {
+      background-color: var(--p3-soil);
+      box-shadow: 0 0 8px var(--p3-soil-glow);
+    }
+    .block-income {
+      background-color: var(--p3-income);
+      box-shadow: 0 0 8px var(--p3-income-glow);
+    }
+
+    .badge-conf-high {
+      background-color: var(--p3-conf-high-bg);
+      border-color: var(--p3-conf-high-border);
+      color: var(--p3-conf-high-text);
+    }
+    .badge-conf-med {
+      background-color: var(--p3-conf-med-bg);
+      border-color: var(--p3-conf-med-border);
+      color: var(--p3-conf-med-text);
+    }
+    .badge-conf-low {
+      background-color: var(--p3-conf-low-bg);
+      border-color: var(--p3-conf-low-border);
+      color: var(--p3-conf-low-text);
+    }
+
+    /* Sombra y acabado de la ranura en forma de C */
+    .horseshoe-shadow {
+      filter: drop-shadow(0 20px 38px rgba(0, 0, 0, 0.72));
+    }
+
+    .arc-handle {
+      cursor: grab;
+      transition: filter 0.15s ease;
+    }
+    .arc-handle:hover {
+      filter: drop-shadow(0 0 12px rgba(255, 255, 255, 0.85));
+    }
+    .arc-handle:active {
+      cursor: grabbing;
+    }
+
+    .c-tab-btn {
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .c-tab-btn:hover path {
+      filter: brightness(1.18);
+    }
+
+    input[type="range"].clean-range {
+      -webkit-appearance: none;
+      appearance: none;
+      background: #1e293b;
+      height: 6px;
+      border-radius: 999px;
+    }
+    input[type="range"].clean-range::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: var(--p3-soil);
+      cursor: pointer;
+      border: 2px solid #0d1015;
+    }
+
+    /* Mapa satelital de la parcela (Leaflet) */
+    #parcel-map {
+      height: 290px;
+      border-radius: 0.75rem;
+      position: relative;
+      z-index: 1; /* mantiene los panes de Leaflet por debajo del modal (z-50) */
+      background: #0d1015;
+    }
+
+    /* Controles de Leaflet acordes al tema oscuro + Display P3 */
+    #parcel-map .leaflet-bar a {
+      background: var(--bg-surface-elevated);
+      color: #e2e8f0;
+      border-bottom: 1px solid var(--border-hairline);
+    }
+    #parcel-map .leaflet-bar a:hover {
+      background: var(--bg-surface);
+      color: #ffffff;
+    }
+    #parcel-map .leaflet-control-attribution {
+      background: rgba(13, 16, 21, 0.78);
+      color: #64748b;
+      font-size: 10px;
+    }
+    #parcel-map .leaflet-control-attribution a {
+      color: #94a3b8;
+    }
+
+    /* =========================================================================
+       FONDO ANIMADO: MARQUESINA DE ICONOS (agricultura + UI)
+       ========================================================================= */
+    .icon-marquee {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    .icon-marquee .mrow {
+      position: relative;
+      top: -50%;
+      width: 100%;
+      display: flex;
+      padding: 6px 0;
+      white-space: nowrap;
+      font-size: 56px;
+      transform: rotate(-30deg);
+      opacity: 0.55;
+    }
+    .icon-marquee .mrow > div {
+      display: flex;
+      animation: mq1 120s linear infinite;
+      animation-delay: -120s;
+      will-change: transform;
+    }
+    .icon-marquee .mrow > div:nth-child(2) {
+      animation-name: mq2;
+      animation-delay: -60s;
+    }
+    .icon-marquee .mrow:nth-child(even) > div {
+      animation-name: mq3;
+      animation-delay: -120s;
+    }
+    .icon-marquee .mrow:nth-child(even) > div:nth-child(2) {
+      animation-name: mq4;
+      animation-delay: -60s;
+    }
+    .icon-marquee i {
+      color: rgba(148, 163, 184, 0.09);
+      padding: 0 7px;
+      user-select: none;
+      transition: color 0.5s ease, text-shadow 0.5s ease;
+    }
+    .icon-marquee i:hover {
+      color: #ffffff;
+      text-shadow:
+        0 0 12px rgba(255, 255, 255, 0.95),
+        0 0 45px rgba(255, 255, 255, 0.60),
+        0 0 90px rgba(255, 255, 255, 0.35);
+    }
+
+    @keyframes mq1 { 0% { transform: translateX(100%); } 100% { transform: translateX(-100%); } }
+    @keyframes mq2 { 0% { transform: translateX(0%); }    100% { transform: translateX(-200%); } }
+    @keyframes mq3 { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
+    @keyframes mq4 { 0% { transform: translateX(-200%); } 100% { transform: translateX(0%); } }
+
