@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: rizosfera
+    name: greenorbit
     runtime: python
     plan: free
     buildCommand: pip install -r backend/requirements.txt

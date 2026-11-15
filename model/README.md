@@ -1,4 +1,4 @@
-# Modelo Rizosfera (pampa de Majes)
+# Modelo GreenOrbit (pampa de Majes)
 
 Simulador de agua, rotación y tope colectivo para la pampa de Majes (Arequipa). Dos niveles:
 Junta de Usuarios (agua entregada frente a agua consumida, tope colectivo) y agricultor (rotación dentro del agua asignada).

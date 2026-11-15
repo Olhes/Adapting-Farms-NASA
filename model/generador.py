@@ -1,4 +1,4 @@
-"""Rotation generator: builds 3-campaign rotations after the current crop and scores them with the Rizosfera model.
+"""Rotation generator: builds 3-campaign rotations after the current crop and scores them with the GreenOrbit model.
 
 Replaces the hand-written rotation table: candidates are enumerated, filtered/penalised by the sourced rotation rules
 (rotacion.py), and scored on water (simulador_tope), soil (nitrogen balance + salinity yield loss + rules) and income
