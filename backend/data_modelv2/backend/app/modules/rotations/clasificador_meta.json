@@ -1,0 +1,171 @@
+{
+  "features": [
+    "mes_sin",
+    "mes_cos",
+    "t2m",
+    "rh2m",
+    "sw_dwn",
+    "ws2m",
+    "prectot",
+    "ce",
+    "w_agua",
+    "w_suelo",
+    "w_ingreso",
+    "cultivo_previo"
+  ],
+  "clases": [
+    "arroz",
+    "maiz_duro",
+    "papa"
+  ],
+  "cultivos_soportados": [
+    "arroz",
+    "papa",
+    "maiz_duro"
+  ],
+  "cultivo_previo_valores": [
+    "ninguno",
+    "arroz",
+    "papa",
+    "maiz_duro"
+  ],
+  "zonas": {
+    "tambo": {
+      "nombre": "Valle de Tambo",
+      "lat": -17.1,
+      "lon": -71.75,
+      "dlat": 0.25,
+      "dlon": 0.3125
+    }
+  },
+  "climatologia_mensual": {
+    "tambo": {
+      "1": {
+        "t2m": 20.052,
+        "rh2m": 77.528,
+        "sw_dwn": 26.082,
+        "ws2m": 2.945,
+        "prectot": 0.223
+      },
+      "2": {
+        "t2m": 20.987,
+        "rh2m": 79.064,
+        "sw_dwn": 25.776,
+        "ws2m": 2.936,
+        "prectot": 0.686
+      },
+      "3": {
+        "t2m": 21.07,
+        "rh2m": 79.174,
+        "sw_dwn": 24.984,
+        "ws2m": 2.806,
+        "prectot": 0.345
+      },
+      "4": {
+        "t2m": 20.121,
+        "rh2m": 78.559,
+        "sw_dwn": 22.258,
+        "ws2m": 2.624,
+        "prectot": 0.036
+      },
+      "5": {
+        "t2m": 18.527,
+        "rh2m": 77.472,
+        "sw_dwn": 18.023,
+        "ws2m": 2.376,
+        "prectot": 0.004
+      },
+      "6": {
+        "t2m": 16.926,
+        "rh2m": 75.645,
+        "sw_dwn": 14.497,
+        "ws2m": 2.173,
+        "prectot": 0.002
+      },
+      "7": {
+        "t2m": 15.764,
+        "rh2m": 74.592,
+        "sw_dwn": 13.067,
+        "ws2m": 2.086,
+        "prectot": 0.002
+      },
+      "8": {
+        "t2m": 15.454,
+        "rh2m": 73.158,
+        "sw_dwn": 13.992,
+        "ws2m": 2.14,
+        "prectot": 0.004
+      },
+      "9": {
+        "t2m": 15.793,
+        "rh2m": 72.481,
+        "sw_dwn": 16.229,
+        "ws2m": 2.253,
+        "prectot": 0.008
+      },
+      "10": {
+        "t2m": 16.274,
+        "rh2m": 73.31,
+        "sw_dwn": 19.771,
+        "ws2m": 2.469,
+        "prectot": 0.007
+      },
+      "11": {
+        "t2m": 17.361,
+        "rh2m": 74.137,
+        "sw_dwn": 22.867,
+        "ws2m": 2.693,
+        "prectot": 0.008
+      },
+      "12": {
+        "t2m": 18.597,
+        "rh2m": 75.328,
+        "sw_dwn": 25.748,
+        "ws2m": 2.925,
+        "prectot": 0.014
+      }
+    }
+  },
+  "rango_entrenamiento": {
+    "t2m": [
+      14.665,
+      22.023
+    ],
+    "rh2m": [
+      68.717,
+      81.95
+    ],
+    "sw_dwn": [
+      11.87,
+      28.117
+    ],
+    "ws2m": [
+      1.853,
+      3.244
+    ],
+    "prectot": [
+      0.0,
+      2.54
+    ]
+  },
+  "rango_ce": [
+    0.5,
+    8.0
+  ],
+  "ce_defecto": 2.8,
+  "composicion_rieles": {
+    "ahorro_agua": {
+      "bajo_consumo_agua": 0.6,
+      "productividad_del_agua": 0.4
+    },
+    "sanidad_suelo": {
+      "rotacion_previo_siguiente": 0.4,
+      "tolerancia_salinidad_CE": 0.35,
+      "impacto_intrinseco_cultivo": 0.25
+    },
+    "ingreso": {
+      "ingreso_neto": 1.0
+    }
+  },
+  "nota": "Etiquetas por reglas (prioridades.py), no por decisiones observadas de agricultores."
+}

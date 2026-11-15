@@ -1,0 +1,11 @@
+cultivo,Topt_min,Topt_max,Tabs_min,Tabs_max,ciclo_dias,verificado,fuente
+arroz,20,30,15,38,140,parcial,FAO AEZ: regimen >20C; limites abs = rango general
+cebolla,12,25,4,30,150,EcoCrop,EcoCrop id=551 (ciclo 85-175 d)
+ajo,13,24,7,35,150,ajustado,EcoCrop id=367 da opt 18-30; se baja a 13-24 por practica local (bulbificacion con frio)
+papa,15,20,7,26,120,general,rango tuberizacion 15-20C; minimo 7C
+olivo,20,34,5,40,365,EcoCrop,EcoCrop id=1553 (perenne)
+maiz,18,27,10,35,140,parcial,FAO AEZ: maiz bajura >20C; resto general
+tomate,18,27,10,35,130,general,rango general hortaliza estacion calida
+pimiento,18,28,12,35,150,general,rango general hortaliza estacion calida
+aji,18,30,12,36,150,general,rango general Capsicum
+alfalfa,21,27,5,45,120,EcoCrop,EcoCrop id=1428 (perenne)
