@@ -22,12 +22,44 @@
       currentRanked: []
     };
 
-    const ZONE_NAMES = {
-      majes: 'Majes - El Pedregal',
-      chili: 'Valle de Chili',
-      camana: 'Valle de Camaná',
-      siguas: 'Santa Rita de Siguas'
+    // Claves de traducción para zonas y cultivos (los valores del <select>
+    // siguen siendo los identificadores del dominio: 'majes', 'Papa', etc.)
+    const ZONE_KEYS = {
+      majes: 'zoneMajes',
+      chili: 'zoneChili',
+      camana: 'zoneCamana',
+      siguas: 'zoneSiguas'
     };
+
+    const CROP_KEYS = {
+      Papa: 'cropPapa',
+      Maíz: 'cropMaiz',
+      Cebolla: 'cropCebolla',
+      Haba: 'cropHaba',
+      Alfalfa: 'cropAlfalfa',
+      Trigo: 'cropTrigo'
+    };
+
+    function zoneLabel(zone) {
+      return t(ZONE_KEYS[zone] || 'zoneMajes');
+    }
+
+    function cropLabel(name) {
+      return CROP_KEYS[name] ? t(CROP_KEYS[name]) : name;
+    }
+
+    function sequenceLabel(sequence) {
+      return sequence.map(cropLabel).join(' → ');
+    }
+
+    // Devuelve el texto agronómico en el idioma activo. Las versiones en
+    // inglés viven en ROTATIONS_EN y están pendientes de revisión agronómica.
+    function rotationText(rotation, field) {
+      if (getLang() === 'en' && ROTATIONS_EN[rotation.id] && ROTATIONS_EN[rotation.id][field]) {
+        return ROTATIONS_EN[rotation.id][field];
+      }
+      return rotation[field];
+    }
 
     const ZONE_MULTIPLIERS = {
       majes: { waterStress: 1.15, soilStress: 1.10 },
@@ -61,6 +93,8 @@
     // =========================================================================
     let parcelMap = null;
     let parcelPolygon = null;
+    let parcelTile = null;
+    let parcelAttribution = '';
     let lastMapZone = null;
     let parcelCenter = null; // centro actual del polígono (permite reubicarlo con clic)
 
@@ -85,8 +119,9 @@
       const geo = ZONE_GEO[state.zone] || ZONE_GEO.majes;
       parcelCenter = geo.coords;
       parcelMap = L.map('parcel-map').setView(geo.coords, 12);
-      L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-        attribution: 'Satélite Esri &mdash; NASA POWER'
+      parcelAttribution = t('mapAttribution');
+      parcelTile = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+        attribution: parcelAttribution
       }).addTo(parcelMap);
       // El usuario puede tocar el mapa para ubicar el punto exacto de su parcela
       parcelMap.on('click', (e) => {
@@ -109,7 +144,21 @@
       parcelPolygon = L.polygon(pts, {
         color: colorHex, fillColor: colorHex, fillOpacity: 0.38, weight: 3
       }).addTo(parcelMap);
-      document.getElementById('parcel-zone-tag').textContent = ZONE_NAMES[state.zone] || 'Majes - El Pedregal';
+      document.getElementById('parcel-zone-tag').textContent = zoneLabel(state.zone);
+    }
+
+    // La atribución de Leaflet se crea una sola vez; al cambiar de idioma hay
+    // que retirar el texto anterior y añadir el nuevo.
+    function refreshMapAttribution() {
+      if (!parcelMap || !parcelTile) return;
+      const next = t('mapAttribution');
+      if (next === parcelAttribution) return;
+      if (parcelAttribution) {
+        parcelMap.attributionControl.removeAttribution(parcelAttribution);
+      }
+      parcelAttribution = next;
+      parcelTile.options.attribution = next;
+      parcelMap.attributionControl.addAttribution(next);
     }
 
     function parcelStatusColor() {
@@ -129,96 +178,13 @@
         parcelMap.flyTo(geo.coords, 12, { duration: 0.9 });
       }
       drawParcelPolygon(parcelStatusColor());
+      refreshMapAttribution();
     }
 
     // =========================================================================
-    // 2-TER. SISTEMA DE IDIOMA (ES / EN)
+    // 2-TER. SISTEMA DE IDIOMA (ES / EN) -> definido en i18n.js
     // =========================================================================
-    const LANGS = {
-      es: {
-        appTitle: 'Field Shift | Asesor de Rotación de Cultivos - Arequipa',
-        zoneLocation: 'Zona - Ubicación',
-        currentCrop: 'Cultivo actual',
-        mapTitle: 'MAPA DE LA PARCELA',
-        mapSub: 'Polígono auditado con imágenes satelitales Esri',
-        mapOk: '🟢 Viable', mapWarn: '🟡 Precaución', mapBad: '🔴 No recomendada',
-        mapHint: 'Toca el mapa para ubicar tu parcela',
-        rotationsTitle: 'ROTACIONES RECOMENDADAS',
-        paretoTitle: 'FRENTE DE COMPROMISOS', paretoBadge: 'Óptimos de Pareto',
-        paretoDesc: 'Relación <strong class="text-slate-200">Salud del Suelo vs. Ingreso</strong> (tamaño = ahorro de agua). Haz clic en un punto para inspeccionar.',
-        axisHigh: 'Alto', axisSoil: '↑ Salud del Suelo', axisLow: 'Bajo', axisIncome: 'Mayor Ingreso →',
-        paretoLegendOk: 'No dominada (Óptima)', paretoLegendBad: 'Dominada / Riesgo', paretoAxisNote: 'Eje Y: Suelo | Eje X: Ingreso',
-        whyTitle: '¿Por qué esta rotación?', copyBtn: 'Copiar', copied: '¡Copiado!',
-        railWater: 'AHORRAR AGUA', railSoil: 'SALUD SUELO', railIncome: 'INGRESO',
-        tabRotations: 'Rotaciones', tabChart: 'Gráfico',
-        blockWater: 'Agua', blockSoil: 'Suelo', blockIncome: 'Ingreso',
-        confidence: 'Confianza', confAlta: 'ALTA', confMedia: 'MEDIA', confBaja: 'BAJA',
-        seeWhy: 'Ver por qué →',
-        soilImpact: 'Impacto en Suelo',
-        advTooltip: 'Configuración avanzada (Variables CSV NASA POWER)',
-        modalTitle: 'Parámetros Locales (NASA POWER CSV)',
-        modalDesc: 'Ajusta los datos climáticos de tu parcela para recalcular el ranking.',
-        modalTemp: 'Temp. Media (T2M)', modalPrec: 'Precipitación (PRECTOT)', modalRh: 'Humedad (RH2M)',
-        modalRad: 'Radiación (SW_DWN)', modalWind: 'Velocidad Viento (WS2M)', modalSal: 'Salinidad Suelo Local (CE dS/m)',
-        cancelBtn: 'Cancelar', applyBtn: 'Aplicar datos',
-        waTitle: '🌱 *Field Shift Arequipa - Recomendación de Rotación*',
-        waZone: '📍 Zona:', waCrop: 'Cultivo actual:', waSeq: '🔄 Secuencia #',
-        waWhy: '💡 Por qué:', waSoil: '🌿 Suelo:', waWater: '💧 Agua:'
-      },
-      en: {
-        appTitle: 'Field Shift | Crop Rotation Advisor - Arequipa',
-        zoneLocation: 'Zone - Location',
-        currentCrop: 'Current crop',
-        mapTitle: 'PARCEL MAP',
-        mapSub: 'Polygon audited with Esri satellite imagery',
-        mapOk: '🟢 Viable', mapWarn: '🟡 Caution', mapBad: '🔴 Not recommended',
-        mapHint: 'Tap the map to place your parcel',
-        rotationsTitle: 'RECOMMENDED ROTATIONS',
-        paretoTitle: 'TRADE-OFF FRONT', paretoBadge: 'Pareto Optima',
-        paretoDesc: 'Trade-off between <strong class="text-slate-200">Soil Health vs. Income</strong> (size = water savings). Click a point to inspect.',
-        axisHigh: 'High', axisSoil: '↑ Soil Health', axisLow: 'Low', axisIncome: 'Higher Income →',
-        paretoLegendOk: 'Non-dominated (Optimal)', paretoLegendBad: 'Dominated / Risk', paretoAxisNote: 'Y axis: Soil | X axis: Income',
-        whyTitle: 'Why this rotation?', copyBtn: 'Copy', copied: 'Copied!',
-        railWater: 'WATER SAVING', railSoil: 'SOIL HEALTH', railIncome: 'INCOME',
-        tabRotations: 'Rotations', tabChart: 'Chart',
-        blockWater: 'Water', blockSoil: 'Soil', blockIncome: 'Income',
-        confidence: 'Confidence', confAlta: 'HIGH', confMedia: 'MEDIUM', confBaja: 'LOW',
-        seeWhy: 'Why →',
-        soilImpact: 'Soil Impact',
-        advTooltip: 'Advanced settings (NASA POWER CSV variables)',
-        modalTitle: 'Local Parameters (NASA POWER CSV)',
-        modalDesc: "Adjust your parcel's climate data to recalculate the ranking.",
-        modalTemp: 'Avg Temp (T2M)', modalPrec: 'Precipitation (PRECTOT)', modalRh: 'Humidity (RH2M)',
-        modalRad: 'Radiation (SW_DWN)', modalWind: 'Wind Speed (WS2M)', modalSal: 'Local Soil Salinity (CE dS/m)',
-        cancelBtn: 'Cancel', applyBtn: 'Apply data',
-        waTitle: '🌱 *Field Shift Arequipa - Rotation Recommendation*',
-        waZone: '📍 Zone:', waCrop: 'Current crop:', waSeq: '🔄 Sequence #',
-        waWhy: '💡 Why:', waSoil: '🌿 Soil:', waWater: '💧 Water:'
-      }
-    };
-
-    let lang = 'es';
-    function t(key) {
-      return (LANGS[lang] && LANGS[lang][key]) || LANGS.es[key] || key;
-    }
-
-    function toggleLang() {
-      lang = lang === 'es' ? 'en' : 'es';
-      document.getElementById('lang-toggle').textContent = lang === 'es' ? 'EN' : 'ES';
-      applyLang();
-    }
-
-    function applyLang() {
-      document.documentElement.lang = lang;
-      document.title = t('appTitle');
-      document.querySelectorAll('[data-i18n]').forEach(el => {
-        el.textContent = t(el.dataset.i18n);
-      });
-      document.querySelectorAll('[data-i18n-html]').forEach(el => {
-        el.innerHTML = t(el.dataset.i18nHtml);
-      });
-      recalculateAll();
-    }
+    // t(), getLang(), setLang(), toggleLang() y applyLang() viven en i18n.js
 
     const CONF_KEY = { ALTA: 'confAlta', MEDIA: 'confMedia', BAJA: 'confBaja' };
 
@@ -403,6 +369,99 @@
           waterBalance: 'Consumo hídrico crítico; penalizado bajo escenarios de escasez en Condoroma.'
         }
       ]
+    };
+
+    // =========================================================================
+    // 1-BIS. TEXTOS AGRONÓMICOS EN INGLÉS
+    // Traducción de ROTATIONS_DB. Pendiente de revisión por el equipo
+    // agronómico antes de publicar (ver informe de entrega).
+    // =========================================================================
+    const ROTATIONS_EN = {
+      'papa-1': {
+        rationale: 'Including fava bean (a legume) immediately after potato replenishes the nitrogen removed by the crop without relying on excessive synthetic fertiliser. Closing the cycle with alfalfa improves water infiltration and reduces surface salinity in arid soils.',
+        soilImpact: '+18% projected organic matter over 4 years; breaks the potato nematode cycle.',
+        waterBalance: 'Savings of ~2,400 m³/ha compared with intensive vegetable rotations.'
+      },
+      'papa-2': {
+        rationale: 'Corn uses the residual nitrogen left after the potato harvest and structures the root profile before fava bean is introduced. Onion at the end maximises the commercial margin by capitalising on the previous biological improvement.',
+        soilImpact: '+11% aggregate stability; neutral nitrogen balance thanks to the legume in year 3.',
+        waterBalance: 'Moderate consumption (+650 m³/ha in the final season due to onion water demand).'
+      },
+      'papa-3': {
+        rationale: 'Early biological fixation with fava bean in year two supports onion profitability in year three, closing with forage or grain corn to capture remaining nutrients.',
+        soilImpact: '+9% labile carbon; electrical conductivity must be monitored before onion.',
+        waterBalance: 'Savings of ~1,150 m³/ha compared with continuous vegetable monoculture.'
+      },
+      'papa-4': {
+        rationale: 'A highly extractive sequence with high agronomic risk: repeating potato for two consecutive seasons multiplies Globodera (cyst nematode) inoculum and depletes available nitrogen with no fallow or cover.',
+        soilImpact: '-22% organic matter and subsurface compaction; high likelihood of yield loss in year 2.',
+        waterBalance: 'Water inefficiency due to low moisture retention in degraded soil.'
+      },
+      'maiz-1': {
+        rationale: 'After the high nitrogen demand of corn, fava bean fixes between 80 and 110 kg N/ha, preparing the ground for potato. Alfalfa at the end restores porosity and controls salts.',
+        soilImpact: '+17% moisture retention and symbiotic nitrogen fixation validated in coastal valleys.',
+        waterBalance: 'Savings of ~1,950 m³/ha by optimising drip irrigation depths.'
+      },
+      'maiz-2': {
+        rationale: 'Alternating fibrous roots (corn and wheat) with a bulb crop (onion) and a taproot (fava bean) prevents plough-pan formation and diversifies annual income.',
+        soilImpact: '+12% stubble cover with wheat in year 4; reduces wind erosion.',
+        waterBalance: 'Savings of ~1,600 m³/ha thanks to the low water requirement of wheat.'
+      },
+      'maiz-3': {
+        rationale: 'A cash-flow-oriented scheme with two commercial crops in high regional demand, supported by the nitrogen fixation of fava bean in year two.',
+        soilImpact: '+6% organic matter; requires compost incorporation before potato.',
+        waterBalance: 'Medium-high water demand in years 3 and 4.'
+      },
+      'maiz-4': {
+        rationale: 'High extraction of macro- and micronutrients with no legumes and no fallow. It increases dependence on synthetic urea and raises salinisation in areas with restricted irrigation.',
+        soilImpact: '-16% microbial activity and loss of granular structure.',
+        waterBalance: 'Severe water deficit during the dry season.'
+      },
+      'ceb-1': {
+        rationale: 'Onion leaves shallow roots and high salinity sensitivity; rotating with fava bean and closing with alfalfa leaches salts from the wet bulb and restores biological fertility.',
+        soilImpact: '+20% infiltration and reduced surface electrical conductivity.',
+        waterBalance: 'Savings of ~2,600 m³/ha compared with continuous vegetable succession.'
+      },
+      'ceb-2': {
+        rationale: 'Takes advantage of the fine seedbed left after onion to establish potato, adding fava bean in year three to restore the nitrogen balance before corn.',
+        soilImpact: '+10% NPK balance; breaks the onion basal fusarium cycle.',
+        waterBalance: 'Balanced consumption with a moderate peak in year 2.'
+      },
+      'ceb-3': {
+        rationale: 'Repeating onion sharply increases pink root and thrips incidence, reducing commercial bulb size and requiring frequent irrigation that worsens salinity.',
+        soilImpact: '-24% soil biological health and accumulation of soluble salts.',
+        waterBalance: 'Water overuse (+3,100 m³/ha) due to forced leaching.'
+      },
+      'haba-1': {
+        rationale: 'INIA model sequence: nitrogen fixed by fava bean directly boosts potato yield in year 2, followed by corn and regenerative alfalfa.',
+        soilImpact: '+19% available organic nitrogen and sustained soil carbon improvement.',
+        waterBalance: 'Savings of ~2,200 m³/ha with high efficiency per kilogram produced.'
+      },
+      'haba-2': {
+        rationale: 'Capitalises on the initial nitrogen supply from fava bean in a high-value crop such as onion, stabilising the profile with grasses (corn and wheat).',
+        soilImpact: '+13% plant cover and less surface compaction.',
+        waterBalance: 'Savings of ~1,750 m³/ha over the full 4-year cycle.'
+      },
+      'haba-3': {
+        rationale: 'Repeating two-year blocks of the same crop favours fungal root diseases and reduces biological fixation efficiency in the second legume season.',
+        soilImpact: '-12% microbial diversity due to low variety of root exudates.',
+        waterBalance: 'Suboptimal water use in years 3 and 4.'
+      },
+      'alf-1': {
+        rationale: 'Ploughing in alfalfa releases an extraordinary reserve of organic matter and nitrogen that maximises potato and corn yields without degrading the soil.',
+        soilImpact: '+22% accumulated organic matter and deep loosening by the taproot.',
+        waterBalance: 'Savings of ~2,050 m³/ha by replacing permanent alfalfa with annual crops.'
+      },
+      'alf-2': {
+        rationale: 'Uses the low salinity and high porosity left by alfalfa to produce export onion in year two, closing with fava bean.',
+        soilImpact: '+15% structural stability and excellent internal drainage.',
+        waterBalance: 'Savings of ~1,850 m³/ha compared with maintaining cut alfalfa.'
+      },
+      'alf-3': {
+        rationale: 'Keeping continuous alfalfa in arid areas such as Majes consumes up to 18,000 m³/ha/year and raises the water table, worsening salinisation in low-lying parcels.',
+        soilImpact: 'Good cover, but high risk of capillary rise of salts.',
+        waterBalance: 'Critical water consumption; penalised under scarcity scenarios at Condoroma.'
+      }
     };
 
     // =========================================================================
@@ -600,11 +659,11 @@
       const topThree = ranked.slice(0, 3);
       const container = document.getElementById('rotations-list');
       container.innerHTML = topThree.map((rot, idx) => `
-        <div onclick="selectRotationForInspection(${idx}, true)" title="Haz clic para ver en el Frente de Compromisos y explicación LLM" class="bg-[#0d1015] border border-slate-700/75 hover:border-slate-400 rounded-2xl px-4 py-3.5 transition cursor-pointer group">
+        <div onclick="selectRotationForInspection(${idx}, true)" title="${t('cardTooltip')}" class="bg-[#0d1015] border border-slate-700/75 hover:border-slate-400 rounded-2xl px-4 py-3.5 transition cursor-pointer group">
           <div class="flex items-center justify-between gap-2 mb-2.5">
             <div class="text-sm sm:text-[15px] font-bold text-white tracking-tight">
               <span class="font-mono-tech text-slate-400 mr-1.5">#${idx + 1}</span>
-              ${rot.sequence.join(' <span class="text-slate-500 mx-1">&gt;</span> ')}
+              ${rot.sequence.map(cropLabel).join(' <span class="text-slate-500 mx-1">&gt;</span> ')}
             </div>
             <span class="text-[10px] font-semibold text-slate-400 group-hover:text-indigo-300 transition">
               ${t('seeWhy')}
@@ -696,31 +755,31 @@
 
       // Actualizar panel inferior "¿Por qué esta rotación?" (LLM)
       const selected = points[state.selectedRotationIdx] || points[0];
-      const zoneLabel = ZONE_NAMES[state.zone] || 'Majes - El Pedregal';
+      const zoneName = zoneLabel(state.zone);
 
       const matchBadge = document.getElementById('llm-match-badge');
-      matchBadge.textContent = `Opción #${selected.idx + 1} (${selected.matchPct}% match)`;
+      matchBadge.textContent = t('optionBadge', { n: selected.idx + 1, pct: selected.matchPct });
       matchBadge.className = `px-2.5 py-1 rounded-lg border text-xs font-bold ${getBadgeClass(selected.confidence)}`;
 
-      document.getElementById('llm-seq-title').textContent = selected.sequence.join(' → ');
-      document.getElementById('llm-rationale-text').textContent = selected.rationale;
-      document.getElementById('llm-soil-header').innerHTML = `<span>🌱</span> ${t('soilImpact')} (${zoneLabel}):`;
-      document.getElementById('llm-soil-detail').textContent = selected.soilImpact;
-      document.getElementById('llm-water-detail').textContent = selected.waterBalance;
+      document.getElementById('llm-seq-title').textContent = sequenceLabel(selected.sequence);
+      document.getElementById('llm-rationale-text').textContent = rotationText(selected, 'rationale');
+      document.getElementById('llm-soil-header').innerHTML = `<span>🌱</span> ${t('soilImpact')} (${zoneName}):`;
+      document.getElementById('llm-soil-detail').textContent = rotationText(selected, 'soilImpact');
+      document.getElementById('llm-water-detail').textContent = rotationText(selected, 'waterBalance');
     }
 
     function copyWhatsAppSummary() {
       const selected = state.currentRanked[state.selectedRotationIdx] || state.currentRanked[0];
       if (!selected) return;
 
-      const zoneLabel = ZONE_NAMES[state.zone] || 'Arequipa';
+      const zoneName = zoneLabel(state.zone);
       const summary = [
         t('waTitle'),
-        `${t('waZone')} ${zoneLabel} | ${t('waCrop')} ${state.currentCrop}`,
-        `${t('waSeq')}${selected.idx + 1}: *${selected.sequence.join(' → ')}* (${selected.matchPct}% match | ${t('confidence')} ${t(CONF_KEY[selected.confidence] || 'confMedia')})`,
-        `${t('waWhy')} ${selected.rationale}`,
-        `${t('waSoil')} ${selected.soilImpact}`,
-        `${t('waWater')} ${selected.waterBalance}`
+        `${t('waZone')} ${zoneName} | ${t('waCrop')} ${cropLabel(state.currentCrop)}`,
+        `${t('waSeq')}${state.selectedRotationIdx + 1}: *${sequenceLabel(selected.sequence)}* (${selected.matchPct}% ${t('matchWord')} | ${t('confidence')} ${t(CONF_KEY[selected.confidence] || 'confMedia')})`,
+        `${t('waWhy')} ${rotationText(selected, 'rationale')}`,
+        `${t('waSoil')} ${rotationText(selected, 'soilImpact')}`,
+        `${t('waWater')} ${rotationText(selected, 'waterBalance')}`
       ].join('\n');
 
       const textarea = document.createElement('textarea');
@@ -735,7 +794,7 @@
         btnLabel.textContent = t('copied');
         setTimeout(() => { btnLabel.textContent = t('copyBtn'); }, 1800);
       } catch (err) {
-        console.error('Error al copiar:', err);
+        console.error(t('copyError'), err);
       }
       document.body.removeChild(textarea);
     }
@@ -803,6 +862,6 @@
       renderHorseshoe();
       initParcelMap();
       initHorseshoeDrag();
-      recalculateAll();
+      setLang(getInitialLang());
       switchWorkspaceView('rotations');
     });
