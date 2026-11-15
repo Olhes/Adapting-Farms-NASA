@@ -44,7 +44,8 @@
           </label>
           <div class="flex items-center gap-2 w-full max-w-[330px]">
             <select id="select-zona" onchange="recalculateAll()" class="w-full bg-p3-elevated text-white font-semibold text-sm rounded-lg px-3 py-2 border border-slate-700 focus:outline-none focus:border-slate-400 cursor-pointer">
-              <option value="majes" selected>Majes - El Pedregal</option>
+              <option value="tambo" selected>Valle de Tambo ★</option>
+              <option value="majes">Majes - El Pedregal</option>
               <option value="chili">Valle de Chili</option>
               <option value="camana">Valle de Camaná</option>
               <option value="siguas">Santa Rita de Siguas</option>
@@ -63,12 +64,26 @@
           <select id="select-cultivo" onchange="recalculateAll()" class="w-full max-w-[260px] bg-p3-elevated text-white font-semibold text-sm rounded-lg px-3 py-2 border border-slate-700 focus:outline-none focus:border-slate-400 cursor-pointer">
             <option value="Papa" selected>Papa</option>
             <option value="Maíz">Maíz</option>
+            <option value="Arroz">Arroz</option>
+            <option value="Ninguno">Ninguno</option>
             <option value="Cebolla">Cebolla</option>
             <option value="Haba">Haba</option>
             <option value="Alfalfa">Alfalfa</option>
           </select>
         </div>
+
+        <!-- Rectángulo 3: Mes de siembra -->
+        <div class="bg-p3-surface border border-slate-700/80 hover:border-slate-500 rounded-xl px-4 py-3 shadow-lg transition flex items-center justify-between gap-3">
+          <label for="select-mes" data-i18n="sowingMonth" class="text-xs font-bold uppercase tracking-wider text-slate-300 shrink-0">
+            Mes de siembra
+          </label>
+          <select id="select-mes" onchange="recalculateAll()" class="w-full max-w-[260px] bg-p3-elevated text-white font-semibold text-sm rounded-lg px-3 py-2 border border-slate-700 focus:outline-none focus:border-slate-400 cursor-pointer">
+          </select>
+        </div>
       </div>
+
+      <!-- TARJETA DEL MODELO CATBOOST (backend /api/rotations/classify) -->
+      <div id="model-card" class="w-full"></div>
 
       <!-- MAPA SATELITAL DE LA PARCELA (opción 🗺️ junto a Zona-Ubicación) -->
       <section id="parcel-map-section" aria-label="Mapa de la parcela" class="hidden bg-p3-surface border border-slate-700/85 rounded-2xl p-4 shadow-2xl w-full">

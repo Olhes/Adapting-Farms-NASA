@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from app.modules.parcels.domain import ZONES, ParcelZone, ParcelZoneOut, PolygonPoint
 
 

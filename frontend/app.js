@@ -4,7 +4,7 @@
     const state = {
       activeView: 'rotations', // 'rotations' | 'pareto'
       selectedRotationIdx: 0,
-      zone: 'majes',
+      zone: 'tambo',
       currentCrop: 'Papa',
       priorities: {
         water: 80,
@@ -19,10 +19,12 @@
         wind: 2.14,
         salinity: 2.8
       },
+      climateCustom: {}, // solo lo que el usuario fijó en el modal (modo avanzado)
       currentRanked: []
     };
 
     const ZONE_NAMES = {
+      tambo: 'Valle de Tambo ★',
       majes: 'Majes - El Pedregal',
       chili: 'Valle de Chili',
       camana: 'Valle de Camaná',
@@ -30,6 +32,7 @@
     };
 
     const ZONE_MULTIPLIERS = {
+      tambo: { waterStress: 0.85, soilStress: 0.95 },
       majes: { waterStress: 1.15, soilStress: 1.10 },
       chili: { waterStress: 0.92, soilStress: 0.90 },
       camana: { waterStress: 0.80, soilStress: 1.00 },
@@ -38,6 +41,10 @@
 
     // Coordenadas y polígono representativo de cada valle/parcela
     const ZONE_GEO = {
+      tambo: {
+        coords: [-17.100, -71.750],
+        polygon: [[-17.114, -71.774], [-17.114, -71.726], [-17.086, -71.720], [-17.086, -71.780]]
+      },
       majes: {
         coords: [-16.350, -72.200],
         polygon: [[-16.364, -72.224], [-16.364, -72.176], [-16.336, -72.170], [-16.336, -72.230]]
@@ -161,6 +168,12 @@
         modalTemp: 'Temp. Media (T2M)', modalPrec: 'Precipitación (PRECTOT)', modalRh: 'Humedad (RH2M)',
         modalRad: 'Radiación (SW_DWN)', modalWind: 'Velocidad Viento (WS2M)', modalSal: 'Salinidad Suelo Local (CE dS/m)',
         cancelBtn: 'Cancelar', applyBtn: 'Aplicar datos',
+        sowingMonth: 'Mes de siembra',
+        modelTitle: '🤖 MODELO CATBOOST (NASA POWER + reglas)',
+        modelProb: 'Probabilidad',
+        modelEffWeight: 'Peso efectivo por columna',
+        modelFactors: 'Factores que más pesan',
+        modelOffline: '⚠️ Backend no disponible — mostrando solo el ranking local.',
         waTitle: '🌱 *Field Shift Arequipa - Recomendación de Rotación*',
         waZone: '📍 Zona:', waCrop: 'Cultivo actual:', waSeq: '🔄 Secuencia #',
         waWhy: '💡 Por qué:', waSoil: '🌿 Suelo:', waWater: '💧 Agua:'
@@ -191,11 +204,31 @@
         modalTemp: 'Avg Temp (T2M)', modalPrec: 'Precipitation (PRECTOT)', modalRh: 'Humidity (RH2M)',
         modalRad: 'Radiation (SW_DWN)', modalWind: 'Wind Speed (WS2M)', modalSal: 'Local Soil Salinity (CE dS/m)',
         cancelBtn: 'Cancel', applyBtn: 'Apply data',
+        sowingMonth: 'Sowing month',
+        modelTitle: '🤖 CATBOOST MODEL (NASA POWER + rules)',
+        modelProb: 'Probability',
+        modelEffWeight: 'Effective weight per column',
+        modelFactors: 'Top driving factors',
+        modelOffline: '⚠️ Backend unavailable — showing local ranking only.',
         waTitle: '🌱 *Field Shift Arequipa - Rotation Recommendation*',
         waZone: '📍 Zone:', waCrop: 'Current crop:', waSeq: '🔄 Sequence #',
         waWhy: '💡 Why:', waSoil: '🌿 Soil:', waWater: '💧 Water:'
       }
     };
+
+    const MONTH_NAMES = {
+      es: ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'],
+      en: ['January','February','March','April','May','June','July','August','September','October','November','December']
+    };
+
+    function buildMonthOptions() {
+      const sel = document.getElementById('select-mes');
+      if (!sel) return;
+      const cur = sel.value || (new Date().getMonth() + 1);
+      sel.innerHTML = MONTH_NAMES[lang].map((n, i) =>
+        `<option value="${i + 1}"${i + 1 === parseInt(cur, 10) ? ' selected' : ''}>${n}</option>`
+      ).join('');
+    }
 
     let lang = 'es';
     function t(key) {
@@ -217,6 +250,7 @@
       document.querySelectorAll('[data-i18n-html]').forEach(el => {
         el.innerHTML = t(el.dataset.i18nHtml);
       });
+      buildMonthOptions();
       recalculateAll();
     }
 
@@ -637,9 +671,157 @@
       `).join('');
 
       updateParcelMap();
+      fetchModelRecommendation();
 
       if (state.activeView === 'pareto') {
         renderParetoAndLLM();
+      }
+    }
+
+    // =========================================================================
+    // 3-BIS. MODELO CATBOOST — POST /api/rotations/rotation (rotación encadenada)
+    // Las "rotaciones" que ve el usuario SON la salida del modelo. Si el backend
+    // no responde o la zona/cultivo no está soportado, queda el ranking local.
+    // =========================================================================
+    const API_BASE = 'http://localhost:8000';
+    const MODEL_CROP_NAMES = { arroz: 'Arroz', papa: 'Papa', maiz_duro: 'Maíz', ninguno: 'Ninguno' };
+    const CROP_TO_MODEL = {
+      'Papa': 'papa', 'Maíz': 'maiz_duro', 'Arroz': 'arroz', 'Ninguno': 'ninguno'
+    };
+    let modelRequestSeq = 0;
+
+    function buildModelPayload() {
+      const mes = parseInt(document.getElementById('select-mes').value, 10) || (new Date().getMonth() + 1);
+      const cropPrev = CROP_TO_MODEL[state.currentCrop] || state.currentCrop;
+      return {
+        zona: state.zone,
+        lat: parcelCenter ? parcelCenter[0] : null,
+        lon: parcelCenter ? parcelCenter[1] : null,
+        mes,
+        cultivo_previo: cropPrev,
+        ahorro_agua: state.priorities.water,
+        sanidad_suelo: state.priorities.soil,
+        ingreso: state.priorities.income,
+        campanas: 3,
+        paso_meses: 4,
+        ...state.climateCustom
+      };
+    }
+
+    function modelWarningCard(html) {
+      const card = document.getElementById('model-card');
+      if (card) card.innerHTML = html;
+    }
+
+    // Convierte un paso del modelo en el formato que usan las tarjetas/Pareto/LLM
+    function pasoToRotation(paso, idx, chain) {
+      const prob = (paso.probabilidades && paso.probabilidades[paso.cultivo_recomendado]) || 0.5;
+      const mesName = MONTH_NAMES[lang][(paso.mes || 1) - 1];
+      const w = paso.peso_efectivo_por_columna || {};
+      const rail = paso.pesos_rieles || {};
+      const factores = (paso.factores_principales || [])
+        .map(f => `${f.factor}: ${f.valor}`).join(' · ');
+      const avisos = (paso.advertencias || []).join(' ');
+      return {
+        sequence: chain.map(c => MODEL_CROP_NAMES[c] || c),
+        adjWater: Math.max(1, Math.min(5, Math.round((rail.ahorro_agua || prob) * 5))),
+        adjSoil: Math.max(1, Math.min(5, Math.round((rail.sanidad_suelo || prob) * 5))),
+        adjIncome: Math.max(1, Math.min(5, Math.round((rail.ingreso || prob) * 5))),
+        confidence: prob >= 0.66 ? 'ALTA' : prob >= 0.4 ? 'MEDIA' : 'BAJA',
+        matchPct: Math.round(prob * 100),
+        paretoX: Math.round(prob * 100),
+        paretoY: Math.round(prob * 100),
+        paretoOptimal: prob >= 0.5,
+        rationale: `Campaña ${paso.campana} · ${mesName} — el modelo elige ${MODEL_CROP_NAMES[paso.cultivo_recomendado] || paso.cultivo_recomendado} tras ${MODEL_CROP_NAMES[paso.cultivo_previo] || paso.cultivo_previo}. ${factores} ${avisos}`.trim(),
+        soilImpact: `Prioridad suelo efectiva: ${Math.round((w.rotacion_previo_siguiente || w.tolerancia_salinidad_CE || 0) * 100)}% · CE=${(paso.valores_usados && paso.valores_usados.ce) ?? '—'}`,
+        waterBalance: `Probabilidad ${(prob * 100).toFixed(0)}% · rotación modelo (CatBoost)`,
+        modelPaso: paso
+      };
+    }
+
+    function renderModelRotations(data) {
+      const pasos = data.pasos || [];
+      if (!pasos.length) return false;
+
+      // Construir la cadena acumulada de cultivos para cada campaña
+      const chain = [pasos[0].cultivo_previo];
+      const ranked = pasos.map((paso, idx) => {
+        const rot = pasoToRotation(paso, idx, chain);
+        chain.push(paso.cultivo_recomendado);
+        return rot;
+      });
+      state.currentRanked = ranked;
+      state.selectedRotationIdx = 0;
+
+      const container = document.getElementById('rotations-list');
+      container.innerHTML = ranked.map((rot, idx) => {
+        const paso = rot.modelPaso;
+        const mesName = MONTH_NAMES[lang][(paso.mes || 1) - 1];
+        const prob = rot.matchPct;
+        return `
+        <div onclick="selectRotationForInspection(${idx}, true)" title="Haz clic para ver en el Frente de Compromisos y explicación" class="bg-[#0d1015] border border-indigo-500/30 hover:border-indigo-300 rounded-2xl px-4 py-3.5 transition cursor-pointer group">
+          <div class="flex items-center justify-between gap-2 mb-2.5">
+            <div class="text-sm sm:text-[15px] font-bold text-white tracking-tight">
+              <span class="font-mono-tech text-indigo-300 mr-1.5">C${idx + 1} · ${mesName}</span>
+              ${rot.sequence.join(' <span class="text-slate-500 mx-1">&gt;</span> ')}
+            </div>
+            <span class="text-[10px] font-semibold text-indigo-300/80 group-hover:text-indigo-200 transition">${prob}% modelo</span>
+          </div>
+          <div class="flex flex-wrap sm:flex-nowrap items-center justify-between gap-4">
+            <div class="flex flex-col gap-1.5 text-xs">
+              <div class="flex items-center gap-3">
+                <span class="w-14 text-slate-300 font-medium">${t('blockWater')}</span>
+                <div class="flex items-center gap-1.5">${renderBlocks(rot.adjWater, 'block-water')}</div>
+              </div>
+              <div class="flex items-center gap-3">
+                <span class="w-14 text-slate-300 font-medium">${t('blockSoil')}</span>
+                <div class="flex items-center gap-1.5">${renderBlocks(rot.adjSoil, 'block-soil')}</div>
+              </div>
+              <div class="flex items-center gap-3">
+                <span class="w-14 text-slate-300 font-medium">${t('blockIncome')}</span>
+                <div class="flex items-center gap-1.5">${renderBlocks(rot.adjIncome, 'block-income')}</div>
+              </div>
+            </div>
+            <div class="px-4 py-2 rounded-xl border text-xs sm:text-sm font-bold tracking-wide shrink-0 ${getBadgeClass(rot.confidence)}">
+              ${t('confidence')} ${t(CONF_KEY[rot.confidence] || 'confMedia')}
+            </div>
+          </div>
+        </div>`;
+      }).join('');
+
+      if (state.activeView === 'pareto') renderParetoAndLLM();
+      return true;
+    }
+
+    async function fetchModelRecommendation() {
+      const seq = ++modelRequestSeq;
+      modelWarningCard(`<div class="bg-p3-surface border border-slate-700/60 rounded-2xl px-4 py-3 text-[11px] text-slate-400">${t('modelTitle')} · …</div>`);
+      try {
+        const res = await fetch(`${API_BASE}/api/rotations/rotation`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(buildModelPayload())
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        if (seq !== modelRequestSeq) return;
+        if (data.soportado && renderModelRotations(data)) {
+          modelWarningCard(''); // el modelo ES la salida: no mostrar tarjeta aparte
+        } else {
+          modelWarningCard(`
+            <div class="bg-p3-surface border border-amber-500/40 rounded-2xl px-4 py-3.5 shadow-xl">
+              <div class="text-xs font-extrabold uppercase tracking-wider text-amber-300 mb-1">${t('modelTitle')}</div>
+              <p class="text-xs text-slate-300 leading-relaxed">${data.mensaje || ''}</p>
+              <p class="text-[10px] text-slate-500 mt-1.5">${t('modelOffline')}</p>
+            </div>`);
+        }
+      } catch (err) {
+        if (seq !== modelRequestSeq) return;
+        modelWarningCard(`
+          <div class="bg-p3-surface border border-slate-700/60 rounded-2xl px-4 py-3">
+            <div class="text-xs font-extrabold uppercase tracking-wider text-slate-400 mb-1">${t('modelTitle')}</div>
+            <p class="text-[11px] text-slate-500">${t('modelOffline')} (${API_BASE})</p>
+          </div>`);
       }
     }
 
@@ -793,12 +975,23 @@
       state.climate.wind = parseFloat(document.getElementById('inp-wind').value);
       state.climate.salinity = parseFloat(document.getElementById('inp-salinity').value);
 
+      // Modo avanzado: registrar qué variables fijó el usuario para el modelo
+      state.climateCustom = {
+        t2m: state.climate.t2m,
+        rh2m: state.climate.rh,
+        sw_dwn: state.climate.rad,
+        ws2m: state.climate.wind,
+        prectot: state.climate.prec,
+        ce: state.climate.salinity
+      };
+
       document.getElementById('active-climate-tag').textContent = `NASA POWER · ${state.climate.t2m.toFixed(1)}°C`;
       toggleAdvancedModal(false);
       recalculateAll();
     }
 
     window.addEventListener('DOMContentLoaded', () => {
+      buildMonthOptions();
       buildIconMarquee();
       renderHorseshoe();
       initParcelMap();
