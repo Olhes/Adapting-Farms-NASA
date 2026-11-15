@@ -22,6 +22,34 @@ ZONES = {"majes": ((-16.47, -16.26), (-72.36, -72.09), "pampa"),
          "tambo": ((-17.22, -17.00), (-71.88, -71.66), "tambo")}
 # years with less water delivered (Condoroma / Pitay): only meaningful for Majes; Tambo has another water source
 DRY = {"majes": {2014: "entrega 12 % menor", 2016: "entrega 8 % menor", 2023: "entrega 7 % menor"}, "tambo": {}}
+# Display text ('es' default, 'en'); `tipo` and the vulnerability levels stay in Spanish (the frontend compares them)
+TXT = {
+    "es": {"no_zone": "Todavía no tenemos datos satelitales de esta zona.",
+           "outside": "Fuera del área con datos satelitales de esta zona.",
+           "source": "MODIS MOD13Q1 (NDVI, 250 m) y MOD16A3GF (ET, 500 m), NASA, vía Planetary Computer",
+           "dry": "entrega {pct} % menor",
+           "majes_only": "Solo hay años secos registrados para la pampa de Majes.",
+           "vul_source": "MODIS MOD13Q1 (NASA). Cambio de verdor de cada cuadro en los años con menos agua frente a sus otros años; "
+                         "solo cuenta una caída si el cuadro se recupera al año siguiente. Los cuadros que bajan para siempre "
+                         "(2022-2024 un 25 % por debajo de 2013-2015) se marcan como cambio de uso.",
+           "sectors": {}},
+    "en": {"no_zone": "We do not have satellite data for this zone yet.",
+           "outside": "Outside the area with satellite data for this zone.",
+           "source": "MODIS MOD13Q1 (NDVI, 250 m) and MOD16A3GF (ET, 500 m), NASA, via Planetary Computer",
+           "dry": "delivery {pct} % lower",
+           "majes_only": "Dry years are only recorded for the Majes pampa.",
+           "vul_source": "MODIS MOD13Q1 (NASA). Greenness change of each square in the years with less water versus its other years; "
+                         "a drop only counts if the square recovers the next year. Squares that fall for good "
+                         "(2022-2024 25 % below 2013-2015) are marked as a change of use.",
+           "sectors": {"norte": "north", "sur": "south", "este": "east", "oeste": "west", "noreste": "northeast",
+                       "noroeste": "northwest", "sureste": "southeast", "suroeste": "southwest",
+                       "repartida en toda la pampa": "spread across the whole pampa"}},
+}
+DRY_PCT = {2014: 12, 2016: 8, 2023: 7}   # the numbers in DRY, for the translated text
+
+
+def _dry_why(zone, year, lang):
+    return DRY[zone][year] if lang != "en" else TXT["en"]["dry"].format(pct=DRY_PCT[year])
 
 
 def _fwd(lat, lon):
@@ -78,22 +106,23 @@ def available(zone):
     return zone in ZONES and (DATA / f"ndvi_{ZONES[zone][2]}_pixeles_anual.npz").exists()
 
 
-def point_info(lat, lon, zone="majes"):
+def point_info(lat, lon, zone="majes", lang="es"):
+    txt = TXT.get(lang, TXT["es"])
     if not available(zone):
-        return {"inside": False, "message": "Todavía no tenemos datos satelitales de esta zona."}
+        return {"inside": False, "message": txt["no_zone"]}
     years, mean = _ndvi(zone)
     idx = _index(lat, lon, NDVI_PIX, zone)
     if idx is None:
-        return {"inside": False, "message": "Fuera del área con datos satelitales de esta zona."}
+        return {"inside": False, "message": txt["outside"]}
     i, j = idx
     series = {int(y): (None if np.isnan(mean[k, i, j]) else round(float(mean[k, i, j]), 3)) for k, y in enumerate(years)}
     normal = [v for y, v in series.items() if v is not None and y < 2025]
     avg = float(np.mean(normal)) if normal else None
     dry = {}
-    for y, why in DRY[zone].items():
+    for y in DRY[zone]:
         others = [v for yy, v in series.items() if v is not None and yy < 2025 and yy != y]
         if series.get(y) is not None and others:
-            dry[y] = {"cambio_pct": round(100 * (series[y] / float(np.mean(others)) - 1), 1), "por_que": why}
+            dry[y] = {"cambio_pct": round(100 * (series[y] / float(np.mean(others)) - 1), 1), "por_que": _dry_why(zone, y, lang)}
     et_years, et = _et(zone)
     ej = _index(lat, lon, ET_PIX, zone)
     et_mean = None
@@ -104,7 +133,7 @@ def point_info(lat, lon, zone="majes"):
     return {"inside": True, "pixel_ha": round(NDVI_PIX ** 2 / 1e4, 2), "square": _square(i, j, NDVI_PIX, zone),
             "ndvi_medio_2013_2024": None if avg is None else round(avg, 3), "tipo": kind, "ndvi_por_anio": series,
             "anios_secos": dry, "et_mm_anual": et_mean,
-            "fuente": "MODIS MOD13Q1 (NDVI, 250 m) y MOD16A3GF (ET, 500 m), NASA, vía Planetary Computer"}
+            "fuente": txt["source"]}
 
 
 def irrigated_points(step=1, zone="majes"):
@@ -158,13 +187,14 @@ def site(lat, lon, zone="majes"):
 
 
 
-def vulnerability(zone="majes", min_mean=0.3):
+def vulnerability(zone="majes", min_mean=0.3, lang="es"):
     """Where a year with less water hits hardest: per irrigated pixel, mean greenness change in the dry years
     (2014, 2016, 2023) versus its own other years (2013-2024). Majes only: the dry years come from the Condoroma
     delivery, which does not feed other valleys."""
+    txt = TXT.get(lang, TXT["es"])
     dry_years = list(DRY.get(zone, {}))
     if not available(zone) or not dry_years:
-        return {"disponible": False, "mensaje": "Solo hay años secos registrados para la pampa de Majes."}
+        return {"disponible": False, "mensaje": txt["majes_only"]}
     years, mean = _ndvi(zone)
     keep = [k for k, y in enumerate(years) if y < 2025]
     base = np.nanmean(mean[keep], axis=0)
@@ -209,10 +239,9 @@ def vulnerability(zone="majes", min_mean=0.3):
         ew = "este" if np.mean(np.array(lon_c) > all_lo) > 0.6 else ("oeste" if np.mean(np.array(lon_c) > all_lo) < 0.4 else "")
         names = {("norte", "este"): "noreste", ("norte", "oeste"): "noroeste", ("sur", "este"): "sureste", ("sur", "oeste"): "suroeste"}
         sector = names.get((ns, ew)) or (ns or ew) or "repartida en toda la pampa"
-    return {"disponible": True, "anios_secos": {str(y): DRY[zone][y] for y in dry_years},
+        sector = txt["sectors"].get(sector, sector)
+    return {"disponible": True, "anios_secos": {str(y): _dry_why(zone, y, lang) for y in dry_years},
             "puntos": pts, "cuadros": count, "ha": {k: round(v * ha) for k, v in count.items()},
             "ha_con_caida_15_por_anio": {str(y): round(v * ha) for y, v in per_year.items()},
             "sector_mas_sensible": sector, "pixel_ha": round(ha, 2),
-            "fuente": "MODIS MOD13Q1 (NASA). Cambio de verdor de cada cuadro en los años con menos agua frente a sus otros años; "
-                      "solo cuenta una caída si el cuadro se recupera al año siguiente. Los cuadros que bajan para siempre "
-                      "(2022-2024 un 25 % por debajo de 2013-2015) se marcan como cambio de uso."}
+            "fuente": txt["vul_source"]}

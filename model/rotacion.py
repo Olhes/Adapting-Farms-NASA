@@ -8,6 +8,8 @@ year, so the waits are a lower bound). Alfalfa/artichoke are perennial and are n
 import json
 from pathlib import Path
 
+import i18n
+
 RULES = json.loads((Path(__file__).parent / "data" / "reglas_rotacion_greenorbit.json").read_text())
 ALIAS = {"maíz": "maiz_amilaceo", "paprika": "paprika", "papa": "papa", "cebolla": "cebolla", "ajo": "ajo", "haba": "haba",
          "alfalfa": "alfalfa", "quinua": "quinua", "zapallo": "zapallo", "arveja": "arveja", "cebada": "cebada", "trigo": "trigo"}
@@ -16,26 +18,35 @@ FAMILY["zapallo"] = "Cucurbitaceae"   # botanical fact; the rules file does not 
 WAIT = {"Solanaceae": 3, "Amaryllidaceae": 3}          # minimum years, from the rules file
 CEREALS = set(RULES["familias"]["Poaceae"])
 LEGUMES = set(RULES["familias"]["Fabaceae"]) - {"alfalfa"}
+TXT = {
+    "es": {"same": "{a} → {b}: misma familia ({fam}) en campañas seguidas",
+           "legume": "{a} → {b}: leguminosa después de cereal",
+           "wait": "{a} y {b}: {fam} se repite a {n} campaña(s); se recomienda esperar {wait}+ años"},
+    "en": {"same": "{a} → {b}: same family ({fam}) in consecutive campaigns",
+           "legume": "{a} → {b}: legume after a cereal",
+           "wait": "{a} and {b}: {fam} repeats after {n} campaign(s); waiting {wait}+ years is recommended"},
+}
 
 
 def family(name):
     return FAMILY.get(ALIAS.get(name.lower(), name.lower()))
 
 
-def check(sequence, previous=None):
+def check(sequence, previous=None, lang="es"):
     """Return (violations, bonuses) for a sequence of crop names; `previous` is the crop sown before it."""
     seq = ([previous] if previous else []) + list(sequence)
     fams = [family(c) for c in seq]
+    txt, name = TXT.get(lang, TXT["es"]), (lambda c: i18n.crop(c, lang))
     bad, good = [], []
     for i in range(1, len(seq)):
         if fams[i] and fams[i] == fams[i - 1] and ALIAS.get(seq[i].lower()) != "alfalfa":
-            bad.append(f"{seq[i - 1]} → {seq[i]}: misma familia ({fams[i]}) en campañas seguidas")
+            bad.append(txt["same"].format(a=name(seq[i - 1]), b=name(seq[i]), fam=fams[i]))
         a, b = ALIAS.get(seq[i - 1].lower()), ALIAS.get(seq[i].lower())
         if a in CEREALS and b in LEGUMES:
-            good.append(f"{seq[i - 1]} → {seq[i]}: leguminosa después de cereal")
+            good.append(txt["legume"].format(a=name(seq[i - 1]), b=name(seq[i])))
     for fam, wait in WAIT.items():
         idx = [i for i, f in enumerate(fams) if f == fam]
         for x, y in zip(idx, idx[1:]):
             if y - x < wait:
-                bad.append(f"{seq[x]} y {seq[y]}: {fam} se repite a {y - x} campaña(s); se recomienda esperar {wait}+ años")
+                bad.append(txt["wait"].format(a=name(seq[x]), b=name(seq[y]), fam=fam, n=y - x, wait=wait))
     return bad, good

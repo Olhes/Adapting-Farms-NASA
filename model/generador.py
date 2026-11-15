@@ -11,6 +11,7 @@ import json
 import statistics as st
 from pathlib import Path
 
+import i18n
 import rotacion
 import simulador_tope as sim
 
@@ -23,6 +24,67 @@ N_SOURCE = {"Ajo": "INIA", "Cebolla": "INIA"}
 SALT = {"Cebolla": (1.2, 16), "Ajo": (3.9, 14.3), "Papa": (1.7, 12), "Maíz": (1.7, 12), "Alfalfa": (2.0, 7.3),
         "Haba": (1.6, 9.6), "Zapallo": (4.9, 10.5), "Quinua": (8.0, 2.9), "Paprika": (1.5, 14.0)}
 REFERENCE_ID = {"Quinua": "quinua", "Paprika": "paprika", "Maíz": "maiz_choclo", "Haba": "haba", "Alfalfa": "alfalfa"}
+# Display text. Crop names inside the texts are translated; facts keep the Spanish names (they are identifiers).
+TXT = {
+    "es": {
+        "adj_dry": "tu zona perdió hasta {pct} % de verdor en un año con menos agua, así que el agua pesa 50 % más",
+        "adj_et": "tu zona usa {et} mm de agua al año frente a {etz} mm del promedio, así que el agua por hectárea se ajustó ×{f:.2f}",
+        "soil": "Balance de nitrógeno de la rotación: {n:+.0f} kg/ha (ajo y cebolla: extracción medida por el INIA; los demás, valores del modelo sintético). "
+                "Rendimiento esperado por salinidad (CE {ece} dS/m): {y:.0f} % (FAO-29).",
+        "water": "Usa {w:,.0f} m³/ha por campaña, {p:+.0f} % frente al promedio de las alternativas (eficiencia de riego {e:.0%}, calibrada).",
+        "win_water": "ahorra agua: usa {m3:,} m³ por hectárea en cada campaña, {pct} % {dir} que el promedio de las otras opciones",
+        "less": "menos", "more": "más",
+        "give_water": "gasta más agua: {m3:,} m³ por hectárea en cada campaña",
+        "win_inc": "deja buen ingreso: unos S/ {s:,} por hectárea en cada campaña, aun en un año regular a malo",
+        "give_inc": "deja menos ingreso que otras opciones",
+        "win_soil": "cuida el suelo: {who} repone nitrógeno", "the_rotation": "la rotación",
+        "give_soil": "le quita al suelo unos {n} kg de nitrógeno por hectárea en tres campañas, porque {who} lo extraen; sumar una haba ayuda a reponerlo",
+        "salt": "con una salinidad de {ce} dS/m, {hits} de lo normal, y eso ya está descontado del ingreso",
+        "salt_hit": "{c} rinde {v} %",
+        "current": "Si sigues sembrando {c} cada campaña (tu forma actual, para comparar): ",
+        "add": "Con solo tus cultivos no hay rotación que cumpla las reglas. Si agregas {c}, ",
+        "add_win": "esta rotación {win}. ", "add_ok": "esta rotación ya cumple las reglas. ", "and": " y ",
+        "why": "Por qué la recomendamos: {win}. ",
+        "balanced": "Es una opción equilibrada, sin un punto fuerte claro. ",
+        "gives": "Qué cede: {give}. ",
+        "rules_ok": "Cumple las reglas de rotación.", "rules_bad": "Ojo: ", "favor": " A favor: ",
+        "gap_inc": "no hay dato de ingreso de {c}",
+        "gap_sal_ref": "la salinidad de tu parcela no está medida (usamos 2,8 dS/m de referencia)",
+        "gap_sal_user": "la salinidad de {ce} dS/m la ingresaste tú; no la verificamos",
+        "site_kind": " Ojo: el satélite ve tu punto como {k} (verdor {ndvi}); revisa si ahí hay riego estable antes de sembrar.",
+        "site_adj": " Ajustado a tu parcela: ",
+        "unknown": " Qué no sabemos: ",
+    },
+    "en": {
+        "adj_dry": "your area lost up to {pct} % of greenness in a year with less water, so water weighs 50 % more",
+        "adj_et": "your area uses {et} mm of water a year versus {etz} mm on average, so water per hectare was adjusted ×{f:.2f}",
+        "soil": "Nitrogen balance of the rotation: {n:+.0f} kg/ha (garlic and onion: extraction measured by INIA; the rest, values from the synthetic model). "
+                "Expected yield under salinity (EC {ece} dS/m): {y:.0f} % (FAO-29).",
+        "water": "Uses {w:,.0f} m³/ha per campaign, {p:+.0f} % versus the average of the alternatives (irrigation efficiency {e:.0%}, calibrated).",
+        "win_water": "saves water: it uses {m3:,} m³ per hectare each campaign, {pct} % {dir} than the average of the other options",
+        "less": "less", "more": "more",
+        "give_water": "uses more water: {m3:,} m³ per hectare each campaign",
+        "win_inc": "gives a good income: about S/ {s:,} per hectare each campaign, even in a regular to bad year",
+        "give_inc": "gives less income than other options",
+        "win_soil": "protects the soil: {who} puts nitrogen back", "the_rotation": "the rotation",
+        "give_soil": "takes about {n} kg of nitrogen per hectare from the soil over three campaigns, because {who} extract it; adding fava beans helps put it back",
+        "salt": "with a salinity of {ce} dS/m, {hits} of normal, and that is already taken off the income",
+        "salt_hit": "{c} yields {v} %",
+        "current": "If you keep sowing {c} every campaign (your current way, for comparison): ",
+        "add": "With only your crops no rotation follows the rules. If you add {c}, ",
+        "add_win": "this rotation {win}. ", "add_ok": "this rotation already follows the rules. ", "and": " and ",
+        "why": "Why we recommend it: {win}. ",
+        "balanced": "It is a balanced option, with no clear strong point. ",
+        "gives": "What it gives up: {give}. ",
+        "rules_ok": "It follows the rotation rules.", "rules_bad": "Watch out: ", "favor": " In favour: ",
+        "gap_inc": "there is no income data for {c}",
+        "gap_sal_ref": "your plot's salinity is not measured (we use 2.8 dS/m as a reference)",
+        "gap_sal_user": "you entered the salinity of {ce} dS/m; we have not checked it",
+        "site_kind": " Watch out: the satellite sees your point as {k} (greenness {ndvi}); check that there is steady irrigation there before sowing.",
+        "site_adj": " Adjusted to your plot: ",
+        "unknown": " What we do not know: ",
+    },
+}
 
 
 def _catalog():
@@ -58,7 +120,7 @@ def _stars(x):
     return max(1, min(5, round(1 + 4 * x)))
 
 
-def generate(current, w_water=80, w_soil=65, w_income=45, ece=2.8, top=5, site=None, allowed=None, cap_pct=100.0):
+def generate(current, w_water=80, w_soil=65, w_income=45, ece=2.8, top=5, site=None, allowed=None, cap_pct=100.0, lang="es"):
     """First 3 items: best by weighted score. The rest: alternatives along the income-soil Pareto front.
 
     site (optional, from pixeles.site): the tapped MODIS pixel. (1) If its greenness dropped in dry years, water weighs
@@ -68,15 +130,17 @@ def generate(current, w_water=80, w_soil=65, w_income=45, ece=2.8, top=5, site=N
     the rules (e.g. only potato), the answer is the best rotations that add ONE crop, saying which one. The farmer's
     current way (the current crop every campaign) is always appended last, for comparison.
     Scores are normalised over all valid rotations, so they compare across these cases.
+    lang: language of the display texts ('es' or 'en'); numbers and identifiers do not change.
     """
+    txt = TXT.get(lang, TXT["es"])
     adjust = []
     sensitive = bool(site and site["peor_anio_seco_pct"] is not None and site["peor_anio_seco_pct"] <= -5)
     if sensitive:
         w_water = w_water * 1.5
-        adjust.append(f"tu zona perdió hasta {abs(site['peor_anio_seco_pct'])} % de verdor en un año con menos agua, así que el agua pesa 50 % más")
+        adjust.append(txt["adj_dry"].format(pct=abs(site['peor_anio_seco_pct'])))
     factor = site["factor_agua"] if site and site["factor_agua"] else 1.0
     if site and site["factor_agua"]:
-        adjust.append(f"tu zona usa {site['et_mm']} mm de agua al año frente a {site['et_zona_mm']} mm del promedio, así que el agua por hectárea se ajustó ×{factor:.2f}")
+        adjust.append(txt["adj_et"].format(et=site['et_mm'], etz=site['et_zona_mm'], f=factor))
     poor_site = bool(site and site["tipo"] != "regado")
     crops, n_bal, income = _catalog()
     et = {m: sim.load_et0_monthly(m) for m in ("hargreaves", "pm")}
@@ -88,7 +152,7 @@ def generate(current, w_water=80, w_soil=65, w_income=45, ece=2.8, top=5, site=N
             water[c] = factor * st.mean(sim.water_m3_ha(c, crops, et[m], "calculada", sim.EFFICIENCY) for m in et)
     rows = []
     for seq in itertools.product(CANDIDATES, repeat=3):
-        bad, good = rotacion.check(seq, previous=current)
+        bad, good = rotacion.check(seq, previous=current, lang=lang)
         rows.append({"seq": seq, "bad": bad, "good": good,
                      "water": st.mean(water[c] for c in seq),
                      "n": sum(n_bal[c] for c in seq),
@@ -188,12 +252,11 @@ def generate(current, w_water=80, w_soil=65, w_income=45, ece=2.8, top=5, site=N
             "modo": mode, "agrega": added.get(id(r)), "es_forma_actual": is_current,
             "agua_cabe": fit(r["seq"]),
         }
-        rationale = explain_template(facts)
+        rationale = explain_template(facts, lang)
         out.append({
             "id": "actual" if is_current else f"gen-{i + 1}", "sequence": [current, *r["seq"]], "confidence": conf, "rationale": rationale, "facts": facts,
-            "soil_impact": f"Balance de nitrógeno de la rotación: {r['n']:+.0f} kg/ha (ajo y cebolla: extracción medida por el INIA; los demás, valores del modelo sintético). "
-                           f"Rendimiento esperado por salinidad (CE {ece} dS/m): {100 * r['yrel']:.0f} % (FAO-29).",
-            "water_balance": f"Usa {r['water']:,.0f} m³/ha por campaña, {100 * (r['water'] / avg_w - 1):+.0f} % frente al promedio de las alternativas (eficiencia de riego {sim.EFFICIENCY:.0%}, calibrada).",
+            "soil_impact": txt["soil"].format(n=r['n'], ece=ece, y=100 * r['yrel']),
+            "water_balance": txt["water"].format(w=r['water'], p=100 * (r['water'] / avg_w - 1), e=sim.EFFICIENCY),
             "adj_water": _stars(r["s_water"]), "adj_soil": _stars(r["s_soil"]), "adj_income": _stars(r["s_inc"]),
             "score": round(5 * r["score"], 2), "match_pct": max(42, min(98, round(100 * r["score"]))),
             "pareto_x": round(100 * r["s_inc"]), "pareto_y": round(100 * r["s_soil"]), "pareto_optimal": id(r) in front_ids and not is_current,
@@ -201,54 +264,54 @@ def generate(current, w_water=80, w_soil=65, w_income=45, ece=2.8, top=5, site=N
     return out
 
 
-def explain_template(f):
+def explain_template(f, lang="es"):
     """Plain-language explanation built only from the model's facts: why it wins, what it gives up, what we do not know."""
+    txt = TXT.get(lang, TXT["es"])
+    names = lambda cs: i18n.crops(cs, lang)
     win, give = [], []
     st_ = f["estrellas"]
     if st_["agua"] >= 4:
-        win.append(f"ahorra agua: usa {f['agua_m3_ha_campana']:,} m³ por hectárea en cada campaña, {abs(f['agua_vs_promedio_pct'])} % "
-                   + ("menos" if f["agua_vs_promedio_pct"] < 0 else "más") + " que el promedio de las otras opciones")
+        win.append(txt["win_water"].format(m3=f['agua_m3_ha_campana'], pct=abs(f['agua_vs_promedio_pct']),
+                                           dir=txt["less"] if f["agua_vs_promedio_pct"] < 0 else txt["more"]))
     elif st_["agua"] <= 2:
-        give.append(f"gasta más agua: {f['agua_m3_ha_campana']:,} m³ por hectárea en cada campaña")
+        give.append(txt["give_water"].format(m3=f['agua_m3_ha_campana']))
     if st_["ingreso"] >= 4:
-        win.append(f"deja buen ingreso: unos S/ {f['ingreso_prudente_s']:,} por hectárea en cada campaña, aun en un año regular a malo")
+        win.append(txt["win_inc"].format(s=f['ingreso_prudente_s']))
     elif st_["ingreso"] <= 2:
-        give.append("deja menos ingreso que otras opciones")
+        give.append(txt["give_inc"])
     if st_["suelo"] >= 4:
-        win.append(f"cuida el suelo: {', '.join(f['reponen_n']) or 'la rotación'} repone nitrógeno")
+        win.append(txt["win_soil"].format(who=names(f['reponen_n']) or txt["the_rotation"]))
     elif f["balance_n_kg_ha"] < 0:
-        give.append(f"le quita al suelo unos {abs(f['balance_n_kg_ha'])} kg de nitrógeno por hectárea en tres campañas, porque "
-                    f"{', '.join(dict.fromkeys(f['extraen_n']))} lo extraen; sumar una haba ayuda a reponerlo")
+        give.append(txt["give_soil"].format(n=abs(f['balance_n_kg_ha']), who=names(dict.fromkeys(f['extraen_n']))))
     hit = {c: v for c, v in f["rinde_por_sal"].items() if v < 85}
     if hit:
-        give.append(f"con una salinidad de {f['ce_dsm']} dS/m, " + ", ".join(f"{c} rinde {v} %" for c, v in hit.items())
-                    + " de lo normal, y eso ya está descontado del ingreso")
+        give.append(txt["salt"].format(ce=f['ce_dsm'], hits=", ".join(txt["salt_hit"].format(c=i18n.crop(c, lang), v=v) for c, v in hit.items())))
     if f.get("es_forma_actual"):
-        lead = f"Si sigues sembrando {f['rotacion'][0]} cada campaña (tu forma actual, para comparar): "
+        lead = txt["current"].format(c=i18n.crop(f['rotacion'][0], lang))
         text = lead + ("; ".join(win + give) + ". " if win or give else "")
         give = []
     elif f.get("agrega"):
-        text = (f"Con solo tus cultivos no hay rotación que cumpla las reglas. Si agregas {f['agrega']}, "
-                + ("esta rotación " + "; ".join(win) + ". " if win else "esta rotación ya cumple las reglas. "))
+        added = txt["and"].join(i18n.crop(c, lang) for c in f["agrega"].split(" y "))   # facts join with " y "
+        text = (txt["add"].format(c=added)
+                + (txt["add_win"].format(win="; ".join(win)) if win else txt["add_ok"]))
     else:
-        text = ("Por qué la recomendamos: " + "; ".join(win) + ". ") if win else "Es una opción equilibrada, sin un punto fuerte claro. "
+        text = txt["why"].format(win="; ".join(win)) if win else txt["balanced"]
     if give:
-        text += "Qué cede: " + "; ".join(give) + ". "
-    text += "Cumple las reglas de rotación." if f["reglas_ok"] else "Ojo: " + " ".join(f["reglas_rotas"])
+        text += txt["gives"].format(give="; ".join(give))
+    text += txt["rules_ok"] if f["reglas_ok"] else txt["rules_bad"] + " ".join(f["reglas_rotas"])
     if f["a_favor"]:
-        text += " A favor: " + " ".join(f["a_favor"])
+        text += txt["favor"] + " ".join(f["a_favor"])
     gaps = []
     if f["sin_dato_ingreso"]:
-        gaps.append(f"no hay dato de ingreso de {', '.join(f['sin_dato_ingreso'])}")
-    gaps.append("la salinidad de tu parcela no está medida (usamos 2,8 dS/m de referencia)" if f["ce_dsm"] == 2.8
-                else f"la salinidad de {f['ce_dsm']} dS/m la ingresaste tú; no la verificamos")
+        gaps.append(txt["gap_inc"].format(c=names(f['sin_dato_ingreso'])))
+    gaps.append(txt["gap_sal_ref"] if f["ce_dsm"] == 2.8 else txt["gap_sal_user"].format(ce=f['ce_dsm']))
     p = f.get("parcela")
     if p:
         if p["tipo"] != "regado":
-            text += f" Ojo: el satélite ve tu punto como {p['tipo']} (verdor {p['ndvi']}); revisa si ahí hay riego estable antes de sembrar."
+            text += txt["site_kind"].format(k=i18n.kind(p['tipo'], lang), ndvi=p['ndvi'])
         if f.get("ajustes_parcela"):
-            text += " Ajustado a tu parcela: " + "; ".join(f["ajustes_parcela"]) + "."
-    return text.strip() + " Qué no sabemos: " + "; ".join(gaps) + "."
+            text += txt["site_adj"] + "; ".join(f["ajustes_parcela"]) + "."
+    return text.strip() + txt["unknown"] + "; ".join(gaps) + "."
 
 
 def real_income_crops():

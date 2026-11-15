@@ -1,3 +1,5 @@
+from typing import Literal
+
 from fastapi import APIRouter, HTTPException, Query
 
 from app.modules.simulation import explain as explain_module
@@ -5,6 +7,8 @@ from app.modules.simulation import service
 from app.modules.simulation.domain import SimulationRequest, SimulationResult
 
 router = APIRouter(prefix="/api/model", tags=["model"])
+Lang = Literal["es", "en"]   # language of the display texts; identifiers (crop names, codes) never change
+NOT_FOUND = {"es": "Rotación no encontrada para estas prioridades", "en": "Rotation not found for these priorities"}
 
 
 def _split(crops: str | None) -> list[str] | None:
@@ -46,9 +50,10 @@ def rotations(
     zone: str = "majes",
     crops: str | None = Query(None, description="cultivos que el agricultor piensa sembrar, separados por coma"),
     cap_pct: float = Query(100, ge=50, le=120, description="agua del año en % de lo normal"),
+    lang: Lang = "es",
 ) -> list[dict]:
     try:
-        return service.generate_rotations(crop, water, soil, income, salinity, lat, lon, zone, _split(crops), cap_pct)
+        return service.generate_rotations(crop, water, soil, income, salinity, lat, lon, zone, _split(crops), cap_pct, lang)
     except ValueError as err:
         raise HTTPException(status_code=404, detail=str(err)) from err
 
@@ -66,21 +71,23 @@ def explain(
     zone: str = "majes",
     crops: str | None = Query(None, description="cultivos que el agricultor piensa sembrar, separados por coma"),
     cap_pct: float = Query(100, ge=50, le=120, description="agua del año en % de lo normal"),
+    lang: Lang = "es",
 ) -> dict:
     try:
-        rotations = service.generate_rotations(crop, water, soil, income, salinity, lat, lon, zone, _split(crops), cap_pct)
+        rotations = service.generate_rotations(crop, water, soil, income, salinity, lat, lon, zone, _split(crops), cap_pct, lang)
     except ValueError as err:
         raise HTTPException(status_code=404, detail=str(err)) from err
     match = next((r for r in rotations if r["id"] == rotation_id), None)
     if match is None:
-        raise HTTPException(status_code=404, detail="Rotación no encontrada para estas prioridades")
-    return explain_module.rewrite(match["rationale"], match["facts"])
+        raise HTTPException(status_code=404, detail=NOT_FOUND[lang])
+    return explain_module.rewrite(match["rationale"], match["facts"], lang)
 
 
 @router.get("/point")
-def point(lat: float = Query(..., ge=-90, le=90), lon: float = Query(..., ge=-180, le=180), zone: str = "majes") -> dict:
+def point(lat: float = Query(..., ge=-90, le=90), lon: float = Query(..., ge=-180, le=180), zone: str = "majes",
+          lang: Lang = "es") -> dict:
     """What the MODIS satellite saw in the ~5.4 ha pixel that contains this point (zones with extracted data)."""
-    return service.point_info(lat, lon, zone)
+    return service.point_info(lat, lon, zone, lang)
 
 
 @router.get("/irrigated")
@@ -94,16 +101,17 @@ def calendar(
     sequence: str = Query(..., description="cultivos de las próximas campañas, separados por coma"),
     cap_pct: float = Query(100, ge=50, le=120),
     area_ha: float = Query(15_900, gt=0),
+    lang: Lang = "es",
 ) -> dict:
     """Month by month: water each campaign asks for vs the water that reaches each hectare."""
     try:
-        return service.water_calendar(_split(sequence) or [], cap_pct, area_ha)
+        return service.water_calendar(_split(sequence) or [], cap_pct, area_ha, lang)
     except ValueError as err:
         raise HTTPException(status_code=404, detail=str(err)) from err
 
 
 
 @router.get("/vulnerability")
-def vulnerability(zone: str = "majes") -> dict:
+def vulnerability(zone: str = "majes", lang: Lang = "es") -> dict:
     """Irrigated pixels classified by how much greenness they lost in the years with less water (Majes)."""
-    return service.vulnerability(zone)
+    return service.vulnerability(zone, lang)

@@ -1,4 +1,4 @@
-"""Optional LLM layer: rewrites the template explanation in plain Spanish without adding facts.
+"""Optional LLM layer: rewrites the template explanation in plain Spanish (or English) without adding facts.
 
 Grounding: the model only receives the template text and the facts computed by the simulator; every number in its
 answer must already be in them, otherwise the template is returned. No key, a network error or a failed check all
@@ -71,26 +71,51 @@ Reglas estrictas:
 Explicación: {template}
 Datos del modelo (JSON): {facts}"""
 
+PROMPT_EN = """You are an assistant for farmers of the Majes pampa (Arequipa, Peru).
+Rewrite the explanation in plain English, in 3 or 4 short sentences, as you would talk to a farmer.
+Strict rules:
+- Use ONLY the information in the explanation and in the data. Do not add new figures, crops, causes or advice.
+- Copy the figures exactly as they appear.
+- Keep what we do not know (missing data).
+- Do not use lists or headings, only text.
+- Write crop names as they appear in the explanation (the data uses Spanish names).
+
+Explanation: {template}
+Model data (JSON): {facts}"""
+
+REASONS = {
+    "es": {"no_key": "sin clave de API configurada", "unfinished": "la IA no terminó la respuesta ({detail})",
+           "no_answer": "el servicio de IA no respondió ({detail})",
+           "extra": "la IA agregó cifras que no están en los datos: {extra}",
+           "ok": "reescrito por {model} a partir de los datos del modelo"},
+    "en": {"no_key": "no API key configured", "unfinished": "the AI did not finish its answer ({detail})",
+           "no_answer": "the AI service did not answer ({detail})",
+           "extra": "the AI added figures that are not in the data: {extra}",
+           "ok": "rewritten by {model} from the model's data"},
+}
+
 
 def _numbers(text: str) -> set[str]:
     text = re.sub(r"(\d)[\s\u00a0\u202f](?=\d{3}\b)", r"\1", text)   # "9 371" -> "9371"
     return {re.sub(r"[.,]", "", n).lstrip("0") or "0" for n in _NUM.findall(text)}
 
 
-def rewrite(template: str, facts: dict) -> dict:
+def rewrite(template: str, facts: dict, lang: str = "es") -> dict:
+    why = REASONS.get(lang, REASONS["es"])
     if not settings.gemini_api_key:
-        return {"text": template, "source": "plantilla", "reason": "sin clave de API configurada"}
-    key = template + json.dumps(facts, sort_keys=True, ensure_ascii=False)
+        return {"text": template, "source": "plantilla", "reason": why["no_key"]}
+    key = lang + "|" + template + json.dumps(facts, sort_keys=True, ensure_ascii=False)
     if key in _CACHE:
         return _CACHE[key]
-    body = {"contents": [{"parts": [{"text": PROMPT.format(template=template, facts=json.dumps(facts, ensure_ascii=False))}]}],
+    prompt = PROMPT_EN if lang == "en" else PROMPT
+    body = {"contents": [{"parts": [{"text": prompt.format(template=template, facts=json.dumps(facts, ensure_ascii=False))}]}],
             "generationConfig": {"temperature": 0.2, "maxOutputTokens": 4096}}
     try:
         data, model = _generate(body)
         cand = data["candidates"][0]
         text = "".join(p.get("text", "") for p in cand["content"]["parts"] if not p.get("thought")).strip()
         if cand.get("finishReason") not in (None, "STOP"):
-            return {"text": template, "source": "plantilla", "reason": f"la IA no terminó la respuesta ({cand.get('finishReason')})"}
+            return {"text": template, "source": "plantilla", "reason": why["unfinished"].format(detail=cand.get('finishReason'))}
     except (urllib.error.URLError, KeyError, IndexError, TimeoutError, ValueError) as err:
         _MODEL.clear()
         detail = getattr(err, "code", None) or type(err).__name__
@@ -99,11 +124,11 @@ def rewrite(template: str, facts: dict) -> dict:
                 detail = f"{err.code}: {json.load(err).get('error', {}).get('message', '')[:160]}"
             except ValueError:
                 pass
-        return {"text": template, "source": "plantilla", "reason": f"el servicio de IA no respondió ({detail})"}
+        return {"text": template, "source": "plantilla", "reason": why["no_answer"].format(detail=detail)}
     allowed = _numbers(template) | _numbers(json.dumps(facts, ensure_ascii=False))
     extra = _numbers(text) - allowed
     if not text or extra:
-        return {"text": template, "source": "plantilla", "reason": f"la IA agregó cifras que no están en los datos: {sorted(extra)[:3]}"}
-    out = {"text": text, "source": "gemini", "reason": f"reescrito por {model} a partir de los datos del modelo"}
+        return {"text": template, "source": "plantilla", "reason": why["extra"].format(extra=sorted(extra)[:3])}
+    out = {"text": text, "source": "gemini", "reason": why["ok"].format(model=model)}
     _CACHE[key] = out
     return out

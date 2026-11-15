@@ -69,6 +69,7 @@
     let parcelPolygon = null;
     let lastMapZone = null;
     let parcelCenter = null; // centro actual del polígono (permite reubicarlo con clic)
+    let baseTiles = null;    // satellite layer (its attribution follows the language)
 
     // Paleta Display P3 del semáforo con fallback sRGB
     const P3_OK = window.CSS && CSS.supports('color', 'color(display-p3 1 1 1)');
@@ -91,8 +92,8 @@
       const geo = ZONE_GEO[state.zone] || ZONE_GEO.majes;
       parcelCenter = geo.coords;
       parcelMap = L.map('parcel-map').setView(geo.coords, 12);
-      L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-        attribution: 'Satélite Esri &mdash; NASA POWER'
+      baseTiles = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+        attribution: t('mapAttribution')
       }).addTo(parcelMap);
       // El usuario puede tocar el mapa para ubicar el punto exacto de su parcela
       parcelMap.on('click', (e) => {
@@ -115,7 +116,7 @@
       parcelPolygon = L.polygon(pts, {
         color: colorHex, fillColor: colorHex, fillOpacity: 0.38, weight: 3
       }).addTo(parcelMap);
-      document.getElementById('parcel-zone-tag').textContent = ZONE_NAMES[state.zone] || 'Majes - El Pedregal';
+      document.getElementById('parcel-zone-tag').textContent = zoneName(state.zone);
     }
 
     function parcelStatusColor() {
@@ -169,7 +170,70 @@
         cancelBtn: 'Cancelar', applyBtn: 'Aplicar datos',
         waTitle: '🌱 *Field Shift Arequipa - Recomendación de Rotación*',
         waZone: '📍 Zona:', waCrop: 'Cultivo actual:', waSeq: '🔄 Secuencia #',
-        waWhy: '💡 Por qué:', waSoil: '🌿 Suelo:', waWater: '💧 Agua:'
+        waWhy: '💡 Por qué:', waSoil: '🌿 Suelo:', waWater: '💧 Agua:',
+        // static texts added later (index.html)
+        mapBtnTitle: 'Especificar mi parcela en el mapa', copyTitle: 'Copiar resumen para WhatsApp',
+        audFarmer: 'Para el agricultor', audJunta: 'Para la Junta',
+        prioHelp: 'Mueve los tres círculos según lo que te importa: ahorrar agua, cuidar el suelo o ganar más.<span class="block text-[11px] text-slate-400 mt-1">Cuenta la <b class="text-slate-300">proporción</b> entre los tres, no el número: si los tres están iguales (todos altos o todos bajos), pesan lo mismo.</span>',
+        tabRot: 'Rotaciones', tabPar: '¿Qué pierdo si cuido el suelo?',
+        introRot: '¿Qué sembrar después de <b id="intro-crop" class="text-white">tu cultivo</b>? Mueve las tres prioridades del círculo (ahorrar agua, cuidar el suelo, ganar más) y mira qué rotación te conviene.',
+        farmWaterDefault: 'Te llegan unos 21.000 m³ por hectárea al año', farmWaterSrc: '(entrega de Pitay repartida en la pampa)',
+        capNormal: 'Año normal', capDry: 'Año seco (88 %)', capDry2014: 'Año seco (88 %, como 2014)',
+        plannedQ: '¿Qué piensas sembrar? <span class="text-slate-500">Marca los cultivos que de verdad puedes sembrar; si no marcas ninguno, se consideran todos.</span>',
+        legendSummary: 'Cómo leer los cuadros y la confianza',
+        legendP1: 'Más cuadros llenos = mejor en ese criterio: <span class="text-sky-300">Agua</span> = ahorra más agua, <span class="text-emerald-300">Suelo</span> = cuida más el suelo, <span class="text-orange-300">Ingreso</span> = gana más. <b>Confianza</b> = cuán respaldada está la recomendación por datos y fuentes.',
+        legendP2: 'Los cuadros comparan cada rotación con las otras posibles; no son una nota absoluta. Casi todos los cultivos le quitan nitrógeno al suelo: solo la haba y la alfalfa lo reponen, pero la alfalfa gasta mucha agua. Por eso una rotación que gana en agua e ingreso suele sacar pocos cuadros en suelo.',
+        zoneNote: 'Los datos del modelo son de Majes. Para esta zona los resultados son solo una referencia.',
+        waterTitle: 'AGUA Y TOPE COLECTIVO', waterSub: 'Para la Junta de Usuarios: ¿alcanza el agua con esta mezcla de cultivos?',
+        waterModel: 'Modelo GreenOrbit · Majes', waterMix: 'Mezcla de cultivos', waterArea: 'Área regada',
+        waterEff: 'Qué parte del agua aprovechan las plantas', waterEt0: 'Cuánta agua piden las plantas',
+        optArea1: '15.900 ha (licencia)', optArea2: '17.500 ha (satélite)',
+        optEff1: '≈ 50 % (medida con satélite)', optEff2: '75 % (supuesto, sin medir)',
+        optEt0Pm: 'Estimación alta (Penman-Monteith)', optEt0Hg: 'Estimación baja (Hargreaves)',
+        waterArrives: 'Agua que llega', calculating: 'Calculando…',
+        waterBalanceHdr: '<span>💧</span> Balance Hídrico:',
+        fitTitle: '¿Cabe en tu agua? <span class="normal-case font-normal text-slate-400">mes a mes, por hectárea</span>',
+        fitLegend: 'Barras: agua que pide el cultivo (naranja si pide más de lo que llega). Línea: agua que llega a cada hectárea (entrega de Pitay 2013–2025). Una campaña por año.',
+        vulHigh: 'Pierde mucho (−10 % o más)', vulMid: 'Pierde algo (−3 a −10 %)', vulLow: 'Aguanta',
+        vulChange: 'Cambió de uso (no se recupera)', vulShort: 'Sin riego si falta agua (barra «Agua que llega»)',
+        modalSalHelp: 'Con más sal rinden menos los cultivos sensibles (cebolla, papa, haba) y ganan los tolerantes (quinua, zapallo), según la tabla FAO-29. Si no la mediste, deja 2,8: es un valor de referencia, no de tu parcela.',
+        mapAttribution: 'Satélite Esri &mdash; NASA POWER',
+        // dynamic texts (app.js / api.js)
+        today: 'Hoy', cardTitle: 'Haz clic para ver por qué', optionBadge: 'Opción #{n} ({m}% match)',
+        apiOk: 'API conectada', apiOff: 'API sin conexión · cálculo local',
+        plannedSuggest: 'Con solo esos cultivos no hay rotación que respete las reglas (misma familia seguida o papa antes de 3 años). Abajo: qué agregar para poder rotar, y tu forma actual para comparar.',
+        plannedList: 'Rotaciones armadas solo con tus cultivos. La última es tu forma actual, para comparar.',
+        farmWater: 'Te llegan unos {n} m³ por hectárea al año', farmWaterCap: ' ({pct} % del agua normal)',
+        fitNo: 'No cabe en tu agua: {crops} pide más de {n} m³/ha', fitShort: 'Cabe en el año; en {n} meses pide más de lo que llega',
+        fitOk: 'Cabe en tu agua todos los meses',
+        modelDown: 'El servicio del modelo no responde. Inicia el backend:\n        <span class="font-mono-tech">uvicorn app.main:app --port 8765</span> (carpeta <span class="font-mono-tech">backend</span>).',
+        capLabelNormal: 'Agua de un año normal', capLabelPct: '{pct} % del agua normal', calcFail: 'No se pudo calcular: {msg}',
+        shortage: 'Faltan {m} millones de m³: con esta mezcla alcanza para unas <b>{ok} ha</b>, o sea <b>{short} ha quedarían sin riego</b> si no se cambia nada. En el mapa, en rojo, las zonas que más sufrieron en los años secos: serían las primeras en notarlo.',
+        toneOk: 'Alcanza el agua', toneTight: 'Alcanza con poco margen', toneBad: 'No alcanza',
+        usePct: 'Usa <b>{pct} %</b> del agua disponible', useAria: 'La demanda usa {pct} por ciento del agua disponible',
+        demandLine: 'Las plantas piden {d} millones de m³ y llegan {c} millones de m³ ({sign} {b}). La línea blanca marca el 100 % del agua disponible.',
+        surplus: 'sobran', deficit: 'faltan', noData: 's/d', assumptionsTitle: 'Qué es supuesto',
+        monthInitials: 'E F M A M J J A S O N D', sownIn: 'siembra en {m}',
+        fitAria: '{crop}: {n} meses piden más agua de la que llega',
+        fitYearShort: 'Cabe en el año; falta en {n} meses', fitAll: 'Cabe todos los meses', fitNoYear: 'No cabe en el año',
+        fitSummaryTail: ' Te llegan unos {n} m³/ha al año.', offlineCalc: 'No se pudo calcular (servicio sin conexión).',
+        writing: 'Redactando…', srcAi: 'Texto redactado con IA ({r}). Las cifras son del modelo.', srcModel: 'Texto generado por el modelo ({r}).',
+        pixelHint: 'Los puntos verdes son las zonas regadas que ve el satélite. <b class="text-white">Toca tu parcela</b> para ver su verdor, el agua que usa y cómo le fue en los años secos.',
+        pixelInfo: '<b class="text-white">Cuadro de {ha} ha: {tipo}.</b> Verdor medio (NDVI) 2013–2024: <b>{ndvi}</b> (desierto ≈ 0,1; cultivo vigoroso ≥ 0,5)',
+        pixelEt: ' · Agua que usan las plantas y el suelo (ET): <b>{et} mm al año</b>',
+        pixelDry: '<br>En años con menos agua, el verdor de este lugar cambió: {dry}.',
+        pixelAdj: '<br><b class="text-emerald-300">Las rotaciones se ajustaron a este punto</b> (mira «Ajustado a tu parcela» en el porqué).',
+        pixelSrc: '<br><span class="text-slate-500 text-[10px]">{src}. El cuadro es más grande que muchas parcelas: describe el entorno de la tuya.</span>',
+        satOffline: 'No se pudo consultar el satélite (servicio sin conexión).',
+        vulChangeTip: 'Bajó para siempre: {c} % de verdor entre 2013-2015 y 2022-2024 (¿ciudad o abandono?)',
+        vulTip: 'En años con menos agua este cuadro cambió {c} % de verdor',
+        vulSummary: '<b class="text-white">¿Dónde golpea más un año con menos agua?</b> Comparando cada cuadro consigo mismo en 2014, 2016 y 2023: ' +
+          '<b class="text-orange-300">{alta} ha pierden mucho</b> verdor y se recuperan después, {media} ha pierden algo y {baja} ha aguantan. ' +
+          'En gris, {cambio} ha que bajaron para siempre (ciudad que crece o chacras abandonadas): no se cuentan como sequía. ' +
+          'Las más sensibles están sobre todo al <b>{sector}</b> de la pampa. ' +
+          'Hectáreas con 15 % o más de caída: 2014 {y14} ha · 2016 {y16} ha · 2023 {y23} ha.' +
+          '<br><span class="text-slate-400">Si en 2027 llega menos agua, estas zonas son las primeras a vigilar o priorizar en los turnos.</span>' +
+          '<br><span class="text-slate-500 text-[10px]">{src} El verdor también cae por plagas o cambios de cultivo: es una señal, no una prueba.</span>'
       },
       en: {
         appTitle: 'Field Shift | Crop Rotation Advisor - Arequipa',
@@ -199,13 +263,91 @@
         cancelBtn: 'Cancel', applyBtn: 'Apply data',
         waTitle: '🌱 *Field Shift Arequipa - Rotation Recommendation*',
         waZone: '📍 Zone:', waCrop: 'Current crop:', waSeq: '🔄 Sequence #',
-        waWhy: '💡 Why:', waSoil: '🌿 Soil:', waWater: '💧 Water:'
+        waWhy: '💡 Why:', waSoil: '🌿 Soil:', waWater: '💧 Water:',
+        mapBtnTitle: 'Mark my plot on the map', copyTitle: 'Copy summary for WhatsApp',
+        audFarmer: 'For the farmer', audJunta: 'For the Water Board',
+        prioHelp: 'Move the three circles to match what matters to you: saving water, protecting the soil or earning more.<span class="block text-[11px] text-slate-400 mt-1">What counts is the <b class="text-slate-300">proportion</b> between the three, not the number: if all three are equal (all high or all low), they weigh the same.</span>',
+        tabRot: 'Rotations', tabPar: 'What do I give up to protect the soil?',
+        introRot: 'What to sow after <b id="intro-crop" class="text-white">your crop</b>? Move the three priorities on the circle (save water, protect the soil, earn more) and see which rotation suits you.',
+        farmWaterDefault: 'You get about 21,000 m³ per hectare a year', farmWaterSrc: '(Pitay delivery spread over the pampa)',
+        capNormal: 'Normal year', capDry: 'Dry year (88 %)', capDry2014: 'Dry year (88 %, like 2014)',
+        plannedQ: 'What do you plan to sow? <span class="text-slate-500">Mark the crops you can really sow; if you mark none, all are considered.</span>',
+        legendSummary: 'How to read the squares and the confidence',
+        legendP1: 'More filled squares = better on that criterion: <span class="text-sky-300">Water</span> = saves more water, <span class="text-emerald-300">Soil</span> = protects the soil more, <span class="text-orange-300">Income</span> = earns more. <b>Confidence</b> = how well the recommendation is backed by data and sources.',
+        legendP2: 'The squares compare each rotation with the other possible ones; they are not an absolute grade. Almost every crop takes nitrogen from the soil: only fava bean and alfalfa put it back, but alfalfa uses a lot of water. That is why a rotation that wins on water and income usually gets few squares on soil.',
+        zoneNote: 'The model data is from Majes. For this zone the results are only a reference.',
+        waterTitle: 'WATER AND COLLECTIVE CAP', waterSub: 'For the Water Users Board: is there enough water for this crop mix?',
+        waterModel: 'GreenOrbit model · Majes', waterMix: 'Crop mix', waterArea: 'Irrigated area',
+        waterEff: 'How much of the water the plants use', waterEt0: 'How much water the plants ask for',
+        optArea1: '15,900 ha (license)', optArea2: '17,500 ha (satellite)',
+        optEff1: '≈ 50 % (measured by satellite)', optEff2: '75 % (assumption, not measured)',
+        optEt0Pm: 'High estimate (Penman-Monteith)', optEt0Hg: 'Low estimate (Hargreaves)',
+        waterArrives: 'Water that arrives', calculating: 'Calculating…',
+        waterBalanceHdr: '<span>💧</span> Water Balance:',
+        fitTitle: 'Does it fit your water? <span class="normal-case font-normal text-slate-400">month by month, per hectare</span>',
+        fitLegend: 'Bars: water the crop asks for (orange if it asks for more than arrives). Line: water that reaches each hectare (Pitay delivery 2013–2025). One campaign per year.',
+        vulHigh: 'Loses a lot (−10 % or more)', vulMid: 'Loses some (−3 to −10 %)', vulLow: 'Holds up',
+        vulChange: 'Changed use (does not recover)', vulShort: 'No irrigation if water runs short («Water that arrives» bar)',
+        modalSalHelp: 'With more salt, sensitive crops (onion, potato, fava bean) yield less and tolerant ones (quinoa, squash) gain, according to the FAO-29 table. If you did not measure it, leave 2.8: it is a reference value, not your plot\'s.',
+        mapAttribution: 'Esri satellite &mdash; NASA POWER',
+        today: 'Today', cardTitle: 'Click to see why', optionBadge: 'Option #{n} ({m}% match)',
+        apiOk: 'API connected', apiOff: 'API offline · local calculation',
+        plannedSuggest: 'With only those crops no rotation follows the rules (same family in a row, or potato again within 3 years). Below: what to add to be able to rotate, and your current way for comparison.',
+        plannedList: 'Rotations built only with your crops. The last one is your current way, for comparison.',
+        farmWater: 'You get about {n} m³ per hectare a year', farmWaterCap: ' ({pct} % of the normal water)',
+        fitNo: 'Does not fit your water: {crops} needs more than {n} m³/ha', fitShort: 'Fits over the year; in {n} months it needs more than arrives',
+        fitOk: 'Fits your water every month',
+        modelDown: 'The model service is not answering. Start the backend:\n        <span class="font-mono-tech">uvicorn app.main:app --port 8765</span> (folder <span class="font-mono-tech">backend</span>).',
+        capLabelNormal: 'Water of a normal year', capLabelPct: '{pct} % of the normal water', calcFail: 'Could not calculate: {msg}',
+        shortage: '{m} million m³ are missing: with this mix there is water for about <b>{ok} ha</b>, so <b>{short} ha would be left without irrigation</b> if nothing changes. On the map, in red, the areas that suffered most in the dry years: they would be the first to notice.',
+        toneOk: 'There is enough water', toneTight: 'Enough, with a thin margin', toneBad: 'Not enough',
+        usePct: 'Uses <b>{pct} %</b> of the available water', useAria: 'Demand uses {pct} percent of the available water',
+        demandLine: 'The plants ask for {d} million m³ and {c} million m³ arrive ({sign} {b}). The white line marks 100 % of the available water.',
+        surplus: 'surplus', deficit: 'shortfall', noData: 'n/a', assumptionsTitle: 'What is assumed',
+        monthInitials: 'J F M A M J J A S O N D', sownIn: 'sown in {m}',
+        fitAria: '{crop}: {n} months ask for more water than arrives',
+        fitYearShort: 'Fits over the year; short in {n} months', fitAll: 'Fits every month', fitNoYear: 'Does not fit the year',
+        fitSummaryTail: ' You get about {n} m³/ha a year.', offlineCalc: 'Could not calculate (service offline).',
+        writing: 'Writing…', srcAi: 'Text written with AI ({r}). The figures come from the model.', srcModel: 'Text generated by the model ({r}).',
+        pixelHint: 'The green dots are the irrigated areas the satellite sees. <b class="text-white">Tap your plot</b> to see its greenness, the water it uses and how it did in the dry years.',
+        pixelInfo: '<b class="text-white">{ha} ha square: {tipo}.</b> Mean greenness (NDVI) 2013–2024: <b>{ndvi}</b> (desert ≈ 0.1; vigorous crop ≥ 0.5)',
+        pixelEt: ' · Water used by plants and soil (ET): <b>{et} mm a year</b>',
+        pixelDry: '<br>In years with less water, the greenness of this place changed: {dry}.',
+        pixelAdj: '<br><b class="text-emerald-300">The rotations were adjusted to this point</b> (see «Adjusted to your plot» in the why).',
+        pixelSrc: '<br><span class="text-slate-500 text-[10px]">{src}. The square is larger than many plots: it describes the surroundings of yours.</span>',
+        satOffline: 'Could not query the satellite (service offline).',
+        vulChangeTip: 'Dropped for good: {c} % of greenness between 2013-2015 and 2022-2024 (city or abandonment?)',
+        vulTip: 'In years with less water this square changed {c} % of greenness',
+        vulSummary: '<b class="text-white">Where does a year with less water hit hardest?</b> Comparing each square with itself in 2014, 2016 and 2023: ' +
+          '<b class="text-orange-300">{alta} ha lose a lot</b> of greenness and recover afterwards, {media} ha lose some and {baja} ha hold up. ' +
+          'In grey, {cambio} ha that dropped for good (growing city or abandoned fields): they are not counted as drought. ' +
+          'The most sensitive ones are mostly in the <b>{sector}</b> of the pampa. ' +
+          'Hectares with a drop of 15 % or more: 2014 {y14} ha · 2016 {y16} ha · 2023 {y23} ha.' +
+          '<br><span class="text-slate-400">If less water arrives in 2027, these areas are the first to watch or prioritise in the irrigation turns.</span>' +
+          '<br><span class="text-slate-500 text-[10px]">{src} Greenness also drops because of pests or crop changes: it is a signal, not a proof.</span>'
       }
     };
 
+    // Display names in English; the Spanish names stay the identifiers sent to and received from the API
+    const CROP_EN = { Papa: 'Potato', Cebolla: 'Onion', Ajo: 'Garlic', Quinua: 'Quinoa', Zapallo: 'Squash', Haba: 'Fava bean',
+                      'Maíz': 'Maize', Alfalfa: 'Alfalfa', Paprika: 'Paprika', Vid: 'Grapevine', Trigo: 'Wheat' };
+    const ZONE_EN = { tambo: 'Tambo Valley', chili: 'Chili Valley', camana: 'Camaná Valley' };
+    const MONTH_EN = { ene: 'Jan', feb: 'Feb', mar: 'Mar', abr: 'Apr', may: 'May', jun: 'Jun', jul: 'Jul', ago: 'Aug', set: 'Sep', oct: 'Oct', nov: 'Nov', dic: 'Dec' };
+    const KIND_EN = { 'regado': 'irrigated', 'mixto (parte regada)': 'mixed (partly irrigated)', 'desierto o sin riego': 'desert or not irrigated', 'sin dato': 'no data' };
+    const MIX_EN = { 'Actual (Autodema 2016)': 'Current (Autodema 2016)', 'Menos alfalfa (ilustrativo)': 'Less alfalfa (illustrative)',
+                     'Diversificada (ilustrativo)': 'Diversified (illustrative)' };
+    const inEn = (map, v) => (lang === 'en' && map[v]) || v;
+    const cropName = (c) => inEn(CROP_EN, c);
+    const zoneName = (z) => (lang === 'en' && ZONE_EN[z]) || ZONE_NAMES[z] || 'Majes - El Pedregal';
+    const monthName = (m) => inEn(MONTH_EN, m);
+    const kindName = (k) => inEn(KIND_EN, k);
+    const mixName = (m) => inEn(MIX_EN, m);
+
     let lang = 'es';
-    function t(key) {
-      return (LANGS[lang] && LANGS[lang][key]) || LANGS.es[key] || key;
+    // t('key') or t('key', { n: 3 }): fills {n} placeholders
+    function t(key, vars) {
+      const s = (LANGS[lang] && LANGS[lang][key]) || LANGS.es[key] || key;
+      return vars ? s.replace(/\{(\w+)\}/g, (m, k) => (k in vars ? vars[k] : m)) : s;
     }
 
     function toggleLang() {
@@ -223,6 +365,19 @@
       document.querySelectorAll('[data-i18n-html]').forEach(el => {
         el.innerHTML = t(el.dataset.i18nHtml);
       });
+      document.querySelectorAll('[data-i18n-title]').forEach(el => {
+        el.title = t(el.dataset.i18nTitle);
+      });
+      // option values stay the Spanish identifiers; only the visible text changes
+      document.querySelectorAll('#select-cultivo option').forEach(o => { o.textContent = cropName(o.value); });
+      document.querySelectorAll('#select-zona option').forEach(o => { o.textContent = zoneName(o.value); });
+      if (parcelMap && baseTiles) {
+        parcelMap.attributionControl.removeAttribution(baseTiles.getAttribution());
+        baseTiles.options.attribution = t('mapAttribution');
+        parcelMap.attributionControl.addAttribution(baseTiles.getAttribution());
+      }
+      // api.js re-renders what it built (status, water panel, chart, map texts); recalculateAll re-asks the ranking
+      if (window.FieldShiftApi && FieldShiftApi.onLang) FieldShiftApi.onLang();
       recalculateAll();
     }
 
@@ -619,11 +774,11 @@
       if (currentWay && !topThree.includes(currentWay)) topThree.push(currentWay);
       const container = document.getElementById('rotations-list');
       container.innerHTML = topThree.map((rot, idx) => `
-        <div onclick="selectRotationForInspection(${finalRanked.indexOf(rot)}, false)" title="Haz clic para ver por qué" class="bg-[#0d1015] border border-slate-700/75 hover:border-slate-400 rounded-2xl px-4 py-2.5 transition cursor-pointer group">
+        <div onclick="selectRotationForInspection(${finalRanked.indexOf(rot)}, false)" title="${t('cardTitle')}" class="bg-[#0d1015] border border-slate-700/75 hover:border-slate-400 rounded-2xl px-4 py-2.5 transition cursor-pointer group">
           <div class="flex items-center justify-between gap-2 mb-2.5">
             <div class="text-sm sm:text-[15px] font-bold text-white tracking-tight">
-              <span class="font-mono-tech text-slate-400 mr-1.5">${rot.id === 'actual' ? 'Hoy' : '#' + (idx + 1)}</span>
-              ${rot.sequence.join(' <span class="text-slate-500 mx-1">&gt;</span> ')}
+              <span class="font-mono-tech text-slate-400 mr-1.5">${rot.id === 'actual' ? t('today') : '#' + (idx + 1)}</span>
+              ${rot.sequence.map(cropName).join(' <span class="text-slate-500 mx-1">&gt;</span> ')}
             </div>
             <span class="text-[10px] font-semibold text-slate-400 group-hover:text-indigo-300 transition">
               ${t('seeWhy')}
@@ -721,13 +876,13 @@
 
       // Actualizar panel inferior "¿Por qué esta rotación?" (LLM)
       const selected = points[state.selectedRotationIdx] || points[0];
-      const zoneLabel = ZONE_NAMES[state.zone] || 'Majes - El Pedregal';
+      const zoneLabel = zoneName(state.zone);
 
       const matchBadge = document.getElementById('llm-match-badge');
-      matchBadge.textContent = `Opción #${selected.idx + 1} (${selected.matchPct}% match)`;
+      matchBadge.textContent = t('optionBadge', { n: selected.idx + 1, m: selected.matchPct });
       matchBadge.className = `px-2.5 py-1 rounded-lg border text-xs font-bold ${getBadgeClass(selected.confidence)}`;
 
-      document.getElementById('llm-seq-title').textContent = selected.sequence.join(' → ');
+      document.getElementById('llm-seq-title').textContent = selected.sequence.map(cropName).join(' → ');
       document.getElementById('llm-rationale-text').textContent = selected.rationale;
       document.getElementById('llm-soil-header').innerHTML = `<span>🌱</span> ${t('soilImpact')} (${zoneLabel}):`;
       document.getElementById('llm-soil-detail').textContent = selected.soilImpact;
@@ -738,11 +893,11 @@
       const selected = state.currentRanked[state.selectedRotationIdx] || state.currentRanked[0];
       if (!selected) return;
 
-      const zoneLabel = ZONE_NAMES[state.zone] || 'Arequipa';
+      const zoneLabel = ZONE_NAMES[state.zone] ? zoneName(state.zone) : 'Arequipa';
       const summary = [
         t('waTitle'),
-        `${t('waZone')} ${zoneLabel} | ${t('waCrop')} ${state.currentCrop}`,
-        `${t('waSeq')}${selected.idx + 1}: *${selected.sequence.join(' → ')}* (${selected.matchPct}% match | ${t('confidence')} ${t(CONF_KEY[selected.confidence] || 'confMedia')})`,
+        `${t('waZone')} ${zoneLabel} | ${t('waCrop')} ${cropName(state.currentCrop)}`,
+        `${t('waSeq')}${selected.idx + 1}: *${selected.sequence.map(cropName).join(' → ')}* (${selected.matchPct}% match | ${t('confidence')} ${t(CONF_KEY[selected.confidence] || 'confMedia')})`,
         `${t('waWhy')} ${selected.rationale}`,
         `${t('waSoil')} ${selected.soilImpact}`,
         `${t('waWater')} ${selected.waterBalance}`

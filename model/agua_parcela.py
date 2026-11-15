@@ -12,10 +12,33 @@ import csv
 import statistics as st
 from pathlib import Path
 
+import i18n
 import simulador_tope as sim
 
 DATA = Path(__file__).parent / "data"
 MONTHS = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "set", "oct", "nov", "dic"]
+TXT = {
+    "es": {"normal": "con el agua de un año normal", "cap": "con el {pct:.0f} % del agua normal",
+           "over": "{where}, {crops} pide más agua de la que llega en todo el año ({ys:,.0f} m³/ha): no alcanza.",
+           "ok": "{where} alcanza todos los meses en las tres campañas.",
+           "peak": "{where} alcanza en el año, pero no en los meses de mayor demanda: {crop} pide más de lo que "
+                   "llega en {months} (faltan unos {d:,} m³/ha). Hace falta guardar agua de otros "
+                   "meses en un reservorio o ajustar la fecha de siembra.",
+           "assumptions": ["Una campaña por año; fuera del ciclo del cultivo no se riega.",
+                           "El agua que te toca es la entrega de Pitay repartida en {area:,.0f} ha (promedio 2013-2025), "
+                           "como si todas regaran todo el año; en la práctica las parcelas en descanso liberan agua.",
+                           "Eficiencia de riego {eff:.0%}, calibrada con la ET satelital."]},
+    "en": {"normal": "with the water of a normal year", "cap": "with {pct:.0f} % of the normal water",
+           "over": "{where}, {crops} needs more water than arrives in the whole year ({ys:,.0f} m³/ha): it is not enough.",
+           "ok": "{where} it is enough every month in all three campaigns.",
+           "peak": "{where} it is enough over the year, but not in the months of highest demand: {crop} needs more than "
+                   "arrives in {months} (about {d:,} m³/ha short). Water from other months has to be stored "
+                   "in a reservoir, or the sowing date adjusted.",
+           "assumptions": ["One campaign per year; no irrigation outside the crop cycle.",
+                           "Your share of water is the Pitay delivery spread over {area:,.0f} ha (2013-2025 average), "
+                           "as if every plot irrigated all year; in practice fallow plots free up water.",
+                           "Irrigation efficiency {eff:.0%}, calibrated with satellite ET."]},
+}
 EXTRA = {"Paprika": {"kc": 1.05, "ciclo": 210, "mes": 8, "fuente": "SUPUESTO: Kc FAO-56 de pimiento, siembra en agosto"}}
 
 
@@ -36,8 +59,8 @@ def crop_monthly(crop, crops, et0s, efficiency=sim.EFFICIENCY):
     return [v * 10 / efficiency for v in prof], month, source
 
 
-def calendar(sequence, cap_pct=100.0, area_ha=sim.AREA_HA, efficiency=sim.EFFICIENCY):
-    """sequence: the crops of the coming campaigns (without the current one)."""
+def calendar(sequence, cap_pct=100.0, area_ha=sim.AREA_HA, efficiency=sim.EFFICIENCY, lang="es"):
+    """sequence: the crops of the coming campaigns (without the current one). lang: 'es' or 'en' for the texts."""
     crops = sim.load_crops()
     et0s = [sim.load_et0_monthly(m) for m in ("hargreaves", "pm")]
     supply = delivery_m3_ha(cap_pct, area_ha)
@@ -52,24 +75,19 @@ def calendar(sequence, cap_pct=100.0, area_ha=sim.AREA_HA, efficiency=sim.EFFICI
                     "deficit_total_m3_ha": sum(x["falta_m3_ha"] for x in short)})
     return {"entrega_m3_ha": [round(v) for v in supply], "entrega_anual_m3_ha": round(year_supply),
             "cap_pct": cap_pct, "area_ha": area_ha, "eficiencia": efficiency, "campanas": out,
-            "resumen": summary(out, year_supply, cap_pct),
-            "supuestos": ["Una campaña por año; fuera del ciclo del cultivo no se riega.",
-                          f"El agua que te toca es la entrega de Pitay repartida en {area_ha:,.0f} ha (promedio 2013-2025), "
-                          "como si todas regaran todo el año; en la práctica las parcelas en descanso liberan agua.",
-                          f"Eficiencia de riego {efficiency:.0%}, calibrada con la ET satelital."]}
+            "resumen": summary(out, year_supply, cap_pct, lang),
+            "supuestos": [a.format(area=area_ha, eff=efficiency) for a in TXT.get(lang, TXT["es"])["assumptions"]]}
 
 
-def summary(campaigns, year_supply, cap_pct):
+def summary(campaigns, year_supply, cap_pct, lang="es"):
+    txt = TXT.get(lang, TXT["es"])
     over_year = list(dict.fromkeys(c["cultivo"] for c in campaigns if not c["cabe_en_el_anio"]))
     peaks = [c for c in campaigns if c["meses_con_deficit"]]
-    where = "con el agua de un año normal" if cap_pct >= 100 else f"con el {cap_pct:.0f} % del agua normal"
+    where = (txt["normal"] if cap_pct >= 100 else txt["cap"].format(pct=cap_pct)).capitalize()
     if over_year:
-        return (f"{where.capitalize()}, {', '.join(over_year)} pide más agua de la que llega en todo el año "
-                f"({year_supply:,.0f} m³/ha): no alcanza.")
+        return txt["over"].format(where=where, crops=i18n.crops(over_year, lang), ys=year_supply)
     if not peaks:
-        return f"{where.capitalize()} alcanza todos los meses en las tres campañas."
+        return txt["ok"].format(where=where)
     worst = max(peaks, key=lambda c: c["deficit_total_m3_ha"])
-    months = ", ".join(x["mes"] for x in worst["meses_con_deficit"])
-    return (f"{where.capitalize()} alcanza en el año, pero no en los meses de mayor demanda: {worst['cultivo']} pide más de lo que "
-            f"llega en {months} (faltan unos {worst['deficit_total_m3_ha']:,} m³/ha). Hace falta guardar agua de otros "
-            f"meses en un reservorio o ajustar la fecha de siembra.")
+    months = ", ".join(i18n.month(x["mes"], lang) for x in worst["meses_con_deficit"])
+    return txt["peak"].format(where=where, crop=i18n.crop(worst["cultivo"], lang), months=months, d=worst["deficit_total_m3_ha"])

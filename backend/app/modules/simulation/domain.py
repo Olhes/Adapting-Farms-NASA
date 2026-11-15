@@ -10,6 +10,7 @@ class SimulationRequest(BaseModel):
     efficiency: float = Field(0.5, gt=0.2, le=1.0)
     et0_method: Literal["pm", "hargreaves"] = "pm"
     water_source: Literal["calculada", "medida"] = "calculada"
+    lang: Literal["es", "en"] = "es"
 
 
 class CropWater(BaseModel):

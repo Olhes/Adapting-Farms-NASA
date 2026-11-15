@@ -52,3 +52,28 @@ def test_vulnerability_map_is_majes_only():
     v = client.get("/api/model/vulnerability", params={"zone": "majes"}).json()
     assert v["disponible"] and sum(v["cuadros"].values()) == len(v["puntos"]) > 3000
     assert client.get("/api/model/vulnerability", params={"zone": "tambo"}).json()["disponible"] is False
+
+
+def test_rotations_in_english_keep_spanish_identifiers():
+    es = client.get("/api/model/rotations", params={"crop": "Papa"}).json()
+    en = client.get("/api/model/rotations", params={"crop": "Papa", "lang": "en"}).json()
+    assert [r["sequence"] for r in en] == [r["sequence"] for r in es] and en[0]["sequence"][0] == "Papa"
+    assert [r["confidence"] for r in en] == [r["confidence"] for r in es]
+    assert en[0]["facts"]["modo"] == "libre" and en[0]["rationale"].startswith("Why we recommend it")
+    assert "What we do not know" in en[0]["rationale"] and en[0]["water_balance"].startswith("Uses ")
+    assert client.get("/api/model/rotations", params={"crop": "Papa", "lang": "fr"}).status_code == 422
+
+
+def test_calendar_in_english_keeps_month_codes():
+    params = {"sequence": "Haba,Maíz,Cebolla", "cap_pct": 88}
+    es = client.get("/api/model/calendar", params=params).json()
+    en = client.get("/api/model/calendar", params={**params, "lang": "en"}).json()
+    assert en["campanas"] == es["campanas"] and en["campanas"][0]["mes_siembra"] == "set"
+    assert en["resumen"].startswith("With 88 % of the normal water") and "Fava bean" in en["resumen"]
+    assert en["supuestos"][0].startswith("One campaign per year")
+
+
+def test_explanation_fallback_reason_follows_the_language(monkeypatch):
+    monkeypatch.setattr(settings, "gemini_api_key", None)
+    d = client.get("/api/model/explain", params={"crop": "Papa", "rotation_id": "gen-1", "lang": "en"}).json()
+    assert d["source"] == "plantilla" and d["reason"] == "no API key configured" and d["text"].startswith("Why we recommend it")
