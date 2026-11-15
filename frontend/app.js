@@ -6,6 +6,7 @@
       selectedRotationIdx: 0,
       zone: 'tambo',
       currentCrop: 'Papa',
+      selectedCrops: ['papa', 'maiz_duro', 'arroz', 'tomate'], // ids del modelo (min. 4)
       priorities: {
         water: 80,
         soil: 65,
@@ -169,13 +170,15 @@
         modalRad: 'Radiación (SW_DWN)', modalWind: 'Velocidad Viento (WS2M)', modalSal: 'Salinidad Suelo Local (CE dS/m)',
         cancelBtn: 'Cancelar', applyBtn: 'Aplicar datos',
         sowingMonth: 'Mes de siembra',
-        modelTitle: '🤖 MODELO CATBOOST (NASA POWER + reglas)',
+        selectCrops: 'Cultivos a evaluar',
+        cropMinHint: '(mín. 4)',
+        modelTitle: '🤖 MODELO CATBOOST · 10 CULTIVOS (ingreso neto)',
         modelProb: 'Probabilidad',
         modelEffWeight: 'Peso efectivo por columna',
         modelFactors: 'Factores que más pesan',
         modelOffline: '⚠️ Backend no disponible — mostrando solo el ranking local.',
         waTitle: '🌱 *Field Shift Arequipa - Recomendación de Rotación*',
-        waZone: '📍 Zona:', waCrop: 'Cultivo actual:', waSeq: '🔄 Secuencia #',
+        waZone: '📍 Zona:', waCrop: '🌱 Cultivos:', waSeq: '🔄 Secuencia #',
         waWhy: '💡 Por qué:', waSoil: '🌿 Suelo:', waWater: '💧 Agua:'
       },
       en: {
@@ -205,13 +208,15 @@
         modalRad: 'Radiation (SW_DWN)', modalWind: 'Wind Speed (WS2M)', modalSal: 'Local Soil Salinity (CE dS/m)',
         cancelBtn: 'Cancel', applyBtn: 'Apply data',
         sowingMonth: 'Sowing month',
-        modelTitle: '🤖 CATBOOST MODEL (NASA POWER + rules)',
+        selectCrops: 'Crops to evaluate',
+        cropMinHint: '(min. 4)',
+        modelTitle: '🤖 CATBOOST MODEL · 10 CROPS (net income)',
         modelProb: 'Probability',
         modelEffWeight: 'Effective weight per column',
         modelFactors: 'Top driving factors',
         modelOffline: '⚠️ Backend unavailable — showing local ranking only.',
         waTitle: '🌱 *Field Shift Arequipa - Rotation Recommendation*',
-        waZone: '📍 Zone:', waCrop: 'Current crop:', waSeq: '🔄 Sequence #',
+        waZone: '📍 Zone:', waCrop: '🌱 Crops:', waSeq: '🔄 Sequence #',
         waWhy: '💡 Why:', waSoil: '🌿 Soil:', waWater: '💧 Water:'
       }
     };
@@ -260,31 +265,31 @@
       Papa: [
         {
           id: 'papa-1',
-          sequence: ['Papa', 'Haba', 'Maíz', 'Alfalfa'],
+          sequence: ['Papa', 'Tomate', 'Maíz', 'Alfalfa'],
           water: 5, soil: 5, income: 3,
           paretoX: 58, paretoY: 86, paretoOptimal: true,
           confidence: 'ALTA',
-          rationale: 'La inclusión de Haba (leguminosa) inmediatamente después de la Papa repone el nitrógeno extraído sin fertilización sintética excesiva. Cerrar con Alfalfa mejora la infiltración de agua y reduce la salinidad superficial en suelos áridos.',
+          rationale: 'El Tomate inmediatamente después de la Papa rompe el ciclo de nematodos y enfermedades de raíz del tubérculo mientras diversifica el ingreso. Cerrar con Alfalfa mejora la infiltración de agua y reduce la salinidad superficial en suelos áridos.',
           soilImpact: '+18% Materia Orgánica proyectada a 4 años; corta ciclo de nematodos de la papa.',
           waterBalance: 'Ahorro de ~2,400 m³/ha frente a rotaciones intensivas de hortalizas.'
         },
         {
           id: 'papa-2',
-          sequence: ['Papa', 'Maíz', 'Haba', 'Cebolla'],
+          sequence: ['Papa', 'Maíz', 'Pimiento', 'Cebolla'],
           water: 3, soil: 4, income: 4,
           paretoX: 74, paretoY: 69, paretoOptimal: true,
           confidence: 'MEDIA',
-          rationale: 'El Maíz aprovecha el nitrógeno residual tras la cosecha de Papa y estructura el perfil radicular antes de introducir Haba. La Cebolla al cierre maximiza el margen comercial aprovechando la mejora biológica previa.',
-          soilImpact: '+11% estabilidad de agregados; balance neutro de nitrógeno con aporte de leguminosa en año 3.',
+          rationale: 'El Maíz estructura el perfil radicular tras la cosecha de Papa y el Pimiento aprovecha la ventana de suelo preparado antes de cerrar con Cebolla, que maximiza el margen comercial.',
+          soilImpact: '+11% estabilidad de agregados; alternancia de raíces fasciculadas y pivotantes.',
           waterBalance: 'Consumo moderado (+650 m³/ha en campaña final por demanda hídrica de cebolla).'
         },
         {
           id: 'papa-3',
-          sequence: ['Papa', 'Haba', 'Cebolla', 'Maíz'],
+          sequence: ['Papa', 'Ají', 'Cebolla', 'Maíz'],
           water: 4, soil: 4, income: 5,
           paretoX: 88, paretoY: 64, paretoOptimal: true,
           confidence: 'MEDIA',
-          rationale: 'Fijación biológica temprana con Haba en el segundo año para sostener la rentabilidad de la Cebolla en el tercero, cerrando con Maíz forrajero o grano para capturar nutrientes remanentes.',
+          rationale: 'El Ají de ciclo corto diversifica el ingreso en el segundo año y deja el perfil aireado para la Cebolla en el tercero, cerrando con Maíz para capturar nutrientes remanentes.',
           soilImpact: '+9% carbono lábil; requiere monitoreo de conductividad eléctrica antes de cebolla.',
           waterBalance: 'Ahorro de ~1,150 m³/ha respecto al monocultivo continuo de hortalizas.'
         },
@@ -302,31 +307,31 @@
       Maíz: [
         {
           id: 'maiz-1',
-          sequence: ['Maíz', 'Haba', 'Papa', 'Alfalfa'],
+          sequence: ['Maíz', 'Tomate', 'Papa', 'Alfalfa'],
           water: 4, soil: 5, income: 4,
           paretoX: 64, paretoY: 85, paretoOptimal: true,
           confidence: 'ALTA',
-          rationale: 'Después del alto consumo de nitrógeno del Maíz, la Haba fija entre 80 y 110 kg N/ha preparando el terreno para la Papa. La Alfalfa final regenera la porosidad y controla sales.',
-          soilImpact: '+17% retención de humedad y fijación simbiótica de nitrógeno validada en valles costeros.',
+          rationale: 'Después del alto consumo de nitrógeno del Maíz, el Tomate diversifica el perfil y deja el suelo suelto para la Papa. La Alfalfa final regenera la porosidad y controla sales.',
+          soilImpact: '+17% retención de humedad y mejora de la estructura del perfil radicular.',
           waterBalance: 'Ahorro de ~1,950 m³/ha optimizando láminas de riego por goteo.'
         },
         {
           id: 'maiz-2',
-          sequence: ['Maíz', 'Cebolla', 'Haba', 'Trigo'],
+          sequence: ['Maíz', 'Cebolla', 'Tomate', 'Arroz'],
           water: 4, soil: 4, income: 4,
           paretoX: 78, paretoY: 71, paretoOptimal: true,
           confidence: 'MEDIA',
-          rationale: 'Alternancia de raíces fasciculadas (Maíz y Trigo) con bulbo (Cebolla) y pivotante (Haba) que evita la formación de pie de arado y diversifica los ingresos anuales.',
-          soilImpact: '+12% cobertura de rastrojo con Trigo en año 4; reduce erosión eólica.',
-          waterBalance: 'Ahorro de ~1,600 m³/ha gracias al bajo requerimiento hídrico del Trigo.'
+          rationale: 'Alternancia de raíces fasciculadas (Maíz y Arroz) con bulbos y hortalizas (Cebolla y Tomate) que evita la formación de pie de arado y diversifica los ingresos anuales.',
+          soilImpact: '+12% cobertura de rastrojo con Arroz en año 4; reduce erosión eólica.',
+          waterBalance: 'Ahorro de ~1,600 m³/ha gracias al ciclo de Arroz con lámina controlada.'
         },
         {
           id: 'maiz-3',
-          sequence: ['Maíz', 'Haba', 'Cebolla', 'Papa'],
+          sequence: ['Maíz', 'Ají', 'Cebolla', 'Papa'],
           water: 3, soil: 3, income: 5,
           paretoX: 90, paretoY: 58, paretoOptimal: true,
           confidence: 'MEDIA',
-          rationale: 'Esquema orientado a flujo de caja con dos cultivos comerciales de alta demanda regional sostenidos por la fijación nitrogenada de Haba en el segundo año.',
+          rationale: 'Esquema orientado a flujo de caja con cultivos comerciales de alta demanda regional, usando el Ají de ciclo corto para airear el suelo antes de la Cebolla.',
           soilImpact: '+6% materia orgánica; exige incorporación de compost antes de la Papa.',
           waterBalance: 'Demanda hídrica media-alta en años 3 y 4.'
         },
@@ -336,7 +341,7 @@
           water: 2, soil: 2, income: 5,
           paretoX: 81, paretoY: 22, paretoOptimal: false,
           confidence: 'BAJA',
-          rationale: 'Alta extracción de macro y micronutrientes sin leguminosas ni descanso. Incrementa la dependencia de urea sintética y eleva la salinización en zonas de riego restringido.',
+          rationale: 'Alta extracción de macro y micronutrientes sin cultivos de cobertura ni descanso. Incrementa la dependencia de fertilización sintética y eleva la salinización en zonas de riego restringido.',
           soilImpact: '-16% actividad microbiana y pérdida de estructura granular.',
           waterBalance: 'Déficit hídrico severo en campañas de estiaje.'
         }
@@ -344,21 +349,21 @@
       Cebolla: [
         {
           id: 'ceb-1',
-          sequence: ['Cebolla', 'Haba', 'Maíz', 'Alfalfa'],
+          sequence: ['Cebolla', 'Tomate', 'Maíz', 'Alfalfa'],
           water: 5, soil: 5, income: 3,
           paretoX: 56, paretoY: 88, paretoOptimal: true,
           confidence: 'ALTA',
-          rationale: 'La Cebolla deja raíces superficiales y alta sensibilidad a salinidad; rotar con Haba y cerrar con Alfalfa lava sales del bulbo húmedo y recupera la fertilidad biológica.',
+          rationale: 'La Cebolla deja raíces superficiales y alta sensibilidad a salinidad; rotar con Tomate y cerrar con Alfalfa lava sales del bulbo húmedo y recupera la fertilidad biológica.',
           soilImpact: '+20% infiltración y reducción de conductividad eléctrica superficial.',
           waterBalance: 'Ahorro de ~2,600 m³/ha frente a sucesión continua de hortalizas.'
         },
         {
           id: 'ceb-2',
-          sequence: ['Cebolla', 'Papa', 'Haba', 'Maíz'],
+          sequence: ['Cebolla', 'Papa', 'Ají', 'Maíz'],
           water: 3, soil: 4, income: 5,
           paretoX: 85, paretoY: 66, paretoOptimal: true,
           confidence: 'MEDIA',
-          rationale: 'Aprovecha la preparación fina de suelo tras Cebolla para establecer Papa, incorporando Haba en el tercer año para restaurar el balance de nitrógeno antes del Maíz.',
+          rationale: 'Aprovecha la preparación fina de suelo tras Cebolla para establecer Papa, insertando el Ají en el tercer año para diversificar y airear el perfil antes del Maíz.',
           soilImpact: '+10% equilibrio NPK; rompe ciclo de fusarium basal de la cebolla.',
           waterBalance: 'Consumo equilibrado con pico moderado en año 2.'
         },
@@ -373,56 +378,24 @@
           waterBalance: 'Sobreconsumo hídrico (+3,100 m³/ha) por lavados forzados.'
         }
       ],
-      Haba: [
-        {
-          id: 'haba-1',
-          sequence: ['Haba', 'Papa', 'Maíz', 'Alfalfa'],
-          water: 5, soil: 5, income: 4,
-          paretoX: 68, paretoY: 87, paretoOptimal: true,
-          confidence: 'ALTA',
-          rationale: 'Secuencia modelo INIA: el nitrógeno fijado por la Haba impulsa directamente el rendimiento de la Papa en el año 2, seguido de Maíz y Alfalfa regenerativa.',
-          soilImpact: '+19% nitrógeno disponible orgánico y mejora sostenida de carbono del suelo.',
-          waterBalance: 'Ahorro de ~2,200 m³/ha con alta eficiencia por kilogramo producido.'
-        },
-        {
-          id: 'haba-2',
-          sequence: ['Haba', 'Cebolla', 'Maíz', 'Trigo'],
-          water: 4, soil: 4, income: 5,
-          paretoX: 86, paretoY: 70, paretoOptimal: true,
-          confidence: 'MEDIA',
-          rationale: 'Capitaliza el aporte nitrogenado inicial de la Haba en un cultivo de alto valor como la Cebolla, estabilizando el perfil con gramíneas (Maíz y Trigo).',
-          soilImpact: '+13% cobertura vegetal y menor compactación superficial.',
-          waterBalance: 'Ahorro de ~1,750 m³/ha en el ciclo completo de 4 años.'
-        },
-        {
-          id: 'haba-3',
-          sequence: ['Haba', 'Haba', 'Papa', 'Papa'],
-          water: 2, soil: 2, income: 3,
-          paretoX: 54, paretoY: 24, paretoOptimal: false,
-          confidence: 'BAJA',
-          rationale: 'Repetir bloques de dos años del mismo cultivo favorece enfermedades fúngicas de raíz y reduce la eficiencia de fijación biológica en la segunda campaña de leguminosa.',
-          soilImpact: '-12% diversidad microbiana por baja variedad de exudados radiculares.',
-          waterBalance: 'Uso subóptimo del agua en años 3 y 4.'
-        }
-      ],
       Alfalfa: [
         {
           id: 'alf-1',
-          sequence: ['Alfalfa', 'Papa', 'Maíz', 'Haba'],
+          sequence: ['Alfalfa', 'Papa', 'Maíz', 'Cebolla'],
           water: 4, soil: 5, income: 4,
           paretoX: 70, paretoY: 89, paretoOptimal: true,
           confidence: 'ALTA',
-          rationale: 'Al roturar Alfalfa se libera una reserva extraordinaria de materia orgánica y nitrógeno que maximiza el rendimiento de Papa y Maíz sin degradar el suelo.',
+          rationale: 'Al roturar Alfalfa se libera una reserva extraordinaria de materia orgánica y nitrógeno que maximiza el rendimiento de Papa y Maíz sin degradar el suelo; la Cebolla cierra con buen margen.',
           soilImpact: '+22% materia orgánica acumulada y descompactación profunda por raíz pivotante.',
           waterBalance: 'Ahorro de ~2,050 m³/ha al sustituir alfalfa permanente por cultivos anuales.'
         },
         {
           id: 'alf-2',
-          sequence: ['Alfalfa', 'Cebolla', 'Maíz', 'Haba'],
+          sequence: ['Alfalfa', 'Cebolla', 'Maíz', 'Tomate'],
           water: 4, soil: 4, income: 5,
           paretoX: 88, paretoY: 73, paretoOptimal: true,
           confidence: 'MEDIA',
-          rationale: 'Aprovecha la baja salinidad y alta porosidad dejada por la Alfalfa para obtener cebolla de exportación en el segundo año, cerrando con Haba.',
+          rationale: 'Aprovecha la baja salinidad y alta porosidad dejada por la Alfalfa para obtener cebolla de exportación en el segundo año, cerrando con Tomate sobre el perfil mejorado.',
           soilImpact: '+15% estabilidad estructural y excelente drenaje interno.',
           waterBalance: 'Ahorro de ~1,850 m³/ha frente al mantenimiento de alfalfa de corte.'
         },
@@ -595,7 +568,10 @@
 
     function recalculateAll() {
       state.zone = document.getElementById('select-zona').value;
-      state.currentCrop = document.getElementById('select-cultivo').value;
+      // el ranking local necesita un cultivo base: se usa el primero seleccionado
+      // que exista en ROTATIONS_DB (Papa, Maíz, Cebolla, Alfalfa); si ninguno, Papa
+      const firstKnown = state.selectedCrops.find(c => DB_CROP_KEY[c]);
+      state.currentCrop = DB_CROP_KEY[firstKnown] || 'Papa';
 
       const list = ROTATIONS_DB[state.currentCrop] || ROTATIONS_DB.Papa;
       const zoneFactor = ZONE_MULTIPLIERS[state.zone] || ZONE_MULTIPLIERS.majes;
@@ -679,32 +655,81 @@
     }
 
     // =========================================================================
-    // 3-BIS. MODELO CATBOOST — POST /api/rotations/rotation (rotación encadenada)
+    // 3-BIS. MODELO CATBOOST — POST /api/rotations10/rotation (10 cultivos, ingreso neto)
     // Las "rotaciones" que ve el usuario SON la salida del modelo. Si el backend
-    // no responde o la zona/cultivo no está soportado, queda el ranking local.
+    // no responde, queda el ranking local.
     // =========================================================================
     const API_BASE = 'http://localhost:8000';
-    const MODEL_CROP_NAMES = { arroz: 'Arroz', papa: 'Papa', maiz_duro: 'Maíz', ninguno: 'Ninguno' };
-    const CROP_TO_MODEL = {
-      'Papa': 'papa', 'Maíz': 'maiz_duro', 'Arroz': 'arroz', 'Ninguno': 'ninguno'
+    const MODEL_CROP_NAMES = {
+      arroz: 'Arroz', papa: 'Papa', maiz_duro: 'Maíz', cebolla: 'Cebolla',
+      ajo: 'Ajo', olivo: 'Olivo', tomate: 'Tomate', pimiento: 'Pimiento',
+      aji: 'Ají', alfalfa: 'Alfalfa', ninguno: 'Ninguno'
     };
+    const MODEL_CROP_LIST = Object.keys(MODEL_CROP_NAMES).filter(c => c !== 'ninguno');
+    const MIN_CROPS = 4;
+    // cultivos del ranking local (ROTATIONS_DB) indexados por id de modelo
+    const DB_CROP_KEY = { papa: 'Papa', maiz_duro: 'Maíz', cebolla: 'Cebolla', alfalfa: 'Alfalfa' };
     let modelRequestSeq = 0;
+
+    // ---------- selector múltiple de cultivos (mín. MIN_CROPS) ----------
+    function buildCropPanel() {
+      const panel = document.getElementById('crop-select-panel');
+      if (!panel || panel.dataset.built) return;
+      panel.dataset.built = '1';
+      panel.innerHTML = `
+        <div class="px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-500">${t('selectCrops')} ${t('cropMinHint')}</div>
+        ${MODEL_CROP_LIST.map(id => `
+          <label class="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-slate-800/70 cursor-pointer text-sm text-slate-200">
+            <input type="checkbox" data-crop="${id}" class="accent-indigo-400 w-4 h-4" onchange="toggleCrop('${id}', this.checked)">
+            ${MODEL_CROP_NAMES[id]}
+          </label>`).join('')}`;
+    }
+
+    function toggleCropPanel(e) {
+      e && e.stopPropagation();
+      const panel = document.getElementById('crop-select-panel');
+      panel.classList.toggle('hidden');
+    }
+
+    function toggleCrop(id, checked) {
+      const sel = state.selectedCrops;
+      if (checked && !sel.includes(id)) {
+        state.selectedCrops = [...sel, id];
+      } else if (!checked && sel.includes(id)) {
+        if (sel.length <= MIN_CROPS) { syncCropPicker(); return; } // no bajar del mínimo
+        state.selectedCrops = sel.filter(c => c !== id);
+      } else {
+        return;
+      }
+      syncCropPicker();
+      recalculateAll();
+    }
+
+    function syncCropPicker() {
+      const sel = state.selectedCrops;
+      document.getElementById('crop-select-label').textContent =
+        `${sel.length} · ${sel.map(c => MODEL_CROP_NAMES[c]).join(', ')}`;
+      document.querySelectorAll('#crop-select-panel input[data-crop]').forEach(cb => {
+        cb.checked = sel.includes(cb.dataset.crop);
+      });
+    }
+
+    document.addEventListener('click', (e) => {
+      const picker = document.getElementById('crop-picker');
+      if (picker && !picker.contains(e.target)) {
+        document.getElementById('crop-select-panel').classList.add('hidden');
+      }
+    });
 
     function buildModelPayload() {
       const mes = parseInt(document.getElementById('select-mes').value, 10) || (new Date().getMonth() + 1);
-      const cropPrev = CROP_TO_MODEL[state.currentCrop] || state.currentCrop;
+      const { ce, ...climate } = state.climateCustom; // el modelo de 10 cultivos no usa CE
       return {
-        zona: state.zone,
-        lat: parcelCenter ? parcelCenter[0] : null,
-        lon: parcelCenter ? parcelCenter[1] : null,
         mes,
-        cultivo_previo: cropPrev,
-        ahorro_agua: state.priorities.water,
-        sanidad_suelo: state.priorities.soil,
-        ingreso: state.priorities.income,
+        cultivos: state.selectedCrops,
         campanas: 3,
         paso_meses: 4,
-        ...state.climateCustom
+        ...climate
       };
     }
 
@@ -713,28 +738,40 @@
       if (card) card.innerHTML = html;
     }
 
-    // Convierte un paso del modelo en el formato que usan las tarjetas/Pareto/LLM
+    // Convierte un paso del modelo en el formato que usan las tarjetas/Pareto/LLM.
+    // El modelo de 10 cultivos es de regresion: devuelve ingreso_neto predicho
+    // (S/ha) por cultivo; la "confianza" se deriva de la cuota del cultivo top
+    // sobre la suma de ingresos positivos.
     function pasoToRotation(paso, idx, chain) {
-      const prob = (paso.probabilidades && paso.probabilidades[paso.cultivo_recomendado]) || 0.5;
+      const ingresos = paso.ingresos_predichos || {};
+      const topIngreso = ingresos[paso.cultivo_recomendado] || 0;
+      const sumaPos = Object.values(ingresos).reduce((a, v) => a + Math.max(0, v), 0) || 1;
+      const prob = Math.min(1, Math.max(0, topIngreso) / sumaPos);
       const mesName = MONTH_NAMES[lang][(paso.mes || 1) - 1];
-      const w = paso.peso_efectivo_por_columna || {};
-      const rail = paso.pesos_rieles || {};
+      const prevName = chain.length ? (MODEL_CROP_NAMES[chain[chain.length - 1]] || chain[chain.length - 1]) : '';
+      const nombre = MODEL_CROP_NAMES[paso.cultivo_recomendado] || paso.cultivo_recomendado;
       const factores = (paso.factores_principales || [])
         .map(f => `${f.factor}: ${f.valor}`).join(' · ');
       const avisos = (paso.advertencias || []).join(' ');
       return {
         sequence: chain.map(c => MODEL_CROP_NAMES[c] || c),
-        adjWater: Math.max(1, Math.min(5, Math.round((rail.ahorro_agua || prob) * 5))),
-        adjSoil: Math.max(1, Math.min(5, Math.round((rail.sanidad_suelo || prob) * 5))),
-        adjIncome: Math.max(1, Math.min(5, Math.round((rail.ingreso || prob) * 5))),
+        cropRanking: (paso.ranking || []).map((id, i) => ({
+          pos: i + 1,
+          name: MODEL_CROP_NAMES[id] || id,
+          ingreso: (paso.ingresos_predichos || {})[id] || 0,
+          esRecomendado: id === paso.cultivo_recomendado
+        })),
+        adjWater: 3,
+        adjSoil: 3,
+        adjIncome: Math.max(1, Math.min(5, Math.round(prob * 5))),
         confidence: prob >= 0.66 ? 'ALTA' : prob >= 0.4 ? 'MEDIA' : 'BAJA',
         matchPct: Math.round(prob * 100),
         paretoX: Math.round(prob * 100),
         paretoY: Math.round(prob * 100),
         paretoOptimal: prob >= 0.5,
-        rationale: `Campaña ${paso.campana} · ${mesName} — el modelo elige ${MODEL_CROP_NAMES[paso.cultivo_recomendado] || paso.cultivo_recomendado} tras ${MODEL_CROP_NAMES[paso.cultivo_previo] || paso.cultivo_previo}. ${factores} ${avisos}`.trim(),
-        soilImpact: `Prioridad suelo efectiva: ${Math.round((w.rotacion_previo_siguiente || w.tolerancia_salinidad_CE || 0) * 100)}% · CE=${(paso.valores_usados && paso.valores_usados.ce) ?? '—'}`,
-        waterBalance: `Probabilidad ${(prob * 100).toFixed(0)}% · rotación modelo (CatBoost)`,
+        rationale: `Campaña ${paso.campana} · ${mesName} — el modelo elige ${nombre} tras ${prevName} con ingreso neto predicho de S/ ${Math.round(topIngreso).toLocaleString('es-PE')}/ha. ${factores} ${avisos}`.trim(),
+        soilImpact: `${t('modelFactors')}: ${factores || '—'}`,
+        waterBalance: `Ingreso neto predicho S/ ${Math.round(topIngreso).toLocaleString('es-PE')}/ha · ranking modelo (CatBoost · 10 cultivos)`,
         modelPaso: paso
       };
     }
@@ -744,7 +781,8 @@
       if (!pasos.length) return false;
 
       // Construir la cadena acumulada de cultivos para cada campaña
-      const chain = [pasos[0].cultivo_previo];
+      // (el modelo no recibe cultivo previo; se muestra el cultivo actual de la UI)
+      const chain = [state.currentCrop || 'Ninguno'];
       const ranked = pasos.map((paso, idx) => {
         const rot = pasoToRotation(paso, idx, chain);
         chain.push(paso.cultivo_recomendado);
@@ -766,6 +804,12 @@
               ${rot.sequence.join(' <span class="text-slate-500 mx-1">&gt;</span> ')}
             </div>
             <span class="text-[10px] font-semibold text-indigo-300/80 group-hover:text-indigo-200 transition">${prob}% modelo</span>
+          </div>
+          <div class="flex flex-wrap gap-1.5 mb-2.5">
+            ${(rot.cropRanking || []).map(c => `
+              <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full border ${c.esRecomendado ? 'border-indigo-400/60 text-indigo-200 bg-indigo-500/10' : 'border-slate-700/80 text-slate-400'}">
+                ${c.pos}. ${c.name} · S/ ${Math.round(c.ingreso).toLocaleString('es-PE')}
+              </span>`).join('')}
           </div>
           <div class="flex flex-wrap sm:flex-nowrap items-center justify-between gap-4">
             <div class="flex flex-col gap-1.5 text-xs">
@@ -797,7 +841,7 @@
       const seq = ++modelRequestSeq;
       modelWarningCard(`<div class="bg-p3-surface border border-slate-700/60 rounded-2xl px-4 py-3 text-[11px] text-slate-400">${t('modelTitle')} · …</div>`);
       try {
-        const res = await fetch(`${API_BASE}/api/rotations/rotation`, {
+        const res = await fetch(`${API_BASE}/api/rotations10/rotation`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(buildModelPayload())
@@ -898,7 +942,7 @@
       const zoneLabel = ZONE_NAMES[state.zone] || 'Arequipa';
       const summary = [
         t('waTitle'),
-        `${t('waZone')} ${zoneLabel} | ${t('waCrop')} ${state.currentCrop}`,
+        `${t('waZone')} ${zoneLabel} | ${t('waCrop')} ${state.selectedCrops.map(c => MODEL_CROP_NAMES[c]).join(', ')}`,
         `${t('waSeq')}${selected.idx + 1}: *${selected.sequence.join(' → ')}* (${selected.matchPct}% match | ${t('confidence')} ${t(CONF_KEY[selected.confidence] || 'confMedia')})`,
         `${t('waWhy')} ${selected.rationale}`,
         `${t('waSoil')} ${selected.soilImpact}`,
@@ -992,6 +1036,8 @@
 
     window.addEventListener('DOMContentLoaded', () => {
       buildMonthOptions();
+      buildCropPanel();
+      syncCropPicker();
       buildIconMarquee();
       renderHorseshoe();
       initParcelMap();

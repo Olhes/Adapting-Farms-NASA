@@ -56,20 +56,16 @@
           </div>
         </div>
 
-        <!-- Rectángulo 2: Cultivo actual -->
-        <div class="bg-p3-surface border border-slate-700/80 hover:border-slate-500 rounded-xl px-4 py-3 shadow-lg transition flex items-center justify-between gap-3">
-          <label for="select-cultivo" data-i18n="currentCrop" class="text-xs font-bold uppercase tracking-wider text-slate-300 shrink-0">
-            Cultivo actual
+        <!-- Rectángulo 2: Cultivos a evaluar (mín. 4, multi-selección) -->
+        <div class="bg-p3-surface border border-slate-700/80 hover:border-slate-500 rounded-xl px-4 py-3 shadow-lg transition flex items-center justify-between gap-3 relative" id="crop-picker">
+          <label for="crop-select-btn" data-i18n="selectCrops" class="text-xs font-bold uppercase tracking-wider text-slate-300 shrink-0">
+            Cultivos a evaluar
           </label>
-          <select id="select-cultivo" onchange="recalculateAll()" class="w-full max-w-[260px] bg-p3-elevated text-white font-semibold text-sm rounded-lg px-3 py-2 border border-slate-700 focus:outline-none focus:border-slate-400 cursor-pointer">
-            <option value="Papa" selected>Papa</option>
-            <option value="Maíz">Maíz</option>
-            <option value="Arroz">Arroz</option>
-            <option value="Ninguno">Ninguno</option>
-            <option value="Cebolla">Cebolla</option>
-            <option value="Haba">Haba</option>
-            <option value="Alfalfa">Alfalfa</option>
-          </select>
+          <button type="button" id="crop-select-btn" onclick="toggleCropPanel(event)" class="w-full max-w-[260px] bg-p3-elevated text-white font-semibold text-sm rounded-lg px-3 py-2 border border-slate-700 focus:outline-none focus:border-slate-400 cursor-pointer text-left flex items-center justify-between gap-2">
+            <span id="crop-select-label" class="truncate">…</span>
+            <span class="text-slate-400 text-xs shrink-0">▾</span>
+          </button>
+          <div id="crop-select-panel" class="hidden absolute right-0 top-full mt-2 z-50 w-64 max-h-72 overflow-y-auto bg-p3-elevated border border-slate-700 rounded-xl shadow-2xl p-2 flex flex-col gap-0.5"></div>
         </div>
 
         <!-- Rectángulo 3: Mes de siembra -->
@@ -82,7 +78,7 @@
         </div>
       </div>
 
-      <!-- TARJETA DEL MODELO CATBOOST (backend /api/rotations/classify) -->
+      <!-- TARJETA DEL MODELO CATBOOST (backend /api/rotations10/rotation) -->
       <div id="model-card" class="w-full"></div>
 
       <!-- MAPA SATELITAL DE LA PARCELA (opción 🗺️ junto a Zona-Ubicación) -->
@@ -204,10 +200,10 @@
           <!-- Bloque narrativo principal -->
           <div class="bg-[#0a0d12] border border-slate-800 rounded-xl p-3.5 mb-3">
             <div id="llm-seq-title" class="text-xs sm:text-sm font-extrabold text-white mb-1.5">
-              Papa → Haba → Maíz → Alfalfa
+              Papa → Tomate → Maíz → Alfalfa
             </div>
             <p id="llm-rationale-text" class="text-xs text-slate-300 leading-relaxed">
-              La inclusión de Haba (leguminosa) inmediatamente después de la Papa repone el nitrógeno extraído sin fertilización sintética excesiva. Cerrar con Alfalfa mejora la infiltración de agua y reduce la salinidad superficial en suelos áridos.
+              El Tomate inmediatamente después de la Papa rompe el ciclo de nematodos y enfermedades de raíz del tubérculo mientras diversifica el ingreso. Cerrar con Alfalfa mejora la infiltración de agua y reduce la salinidad superficial en suelos áridos.
             </p>
           </div>
 
@@ -462,6 +458,6 @@
     </div>
   </div>
 
-  <script src="app.js" defer></script>
+  <script src="app.js?v=4" defer></script>
 </body>
 </html>

@@ -5,6 +5,7 @@ from app.core.config import settings
 from app.modules.climate.controller import router as climate_router
 from app.modules.parcels.controller import router as parcels_router
 from app.modules.rotations.clasificador_cultivo import router as clasificador_router
+from app.modules.rotations.clasificador_ingreso import router as ingreso_router
 from app.modules.rotations.controller import router as rotations_router
 
 app = FastAPI(
@@ -24,6 +25,7 @@ app.add_middleware(
 app.include_router(parcels_router)
 app.include_router(rotations_router)
 app.include_router(clasificador_router)
+app.include_router(ingreso_router)
 app.include_router(climate_router)
 
 
