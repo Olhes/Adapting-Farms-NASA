@@ -1,0 +1,202 @@
+{
+  "meta": {
+    "version": "1.1",
+    "descripcion": "Reglas de rotación para una primera versión del motor plurianual. Cada regla tiene fuente y confianza. No sustituyen al criterio de la junta de usuarios / INIA.",
+    "aviso_nitrogeno_y_sales": "fija_nitrogeno=true (alfalfa, haba, arveja) indica que el cultivo es una leguminosa capaz de fijar N atmosférico. Eso NO cuantifica el nitrógeno residual disponible para el cultivo siguiente y NO implica reducción de la salinidad del suelo. El lavado de sales depende del agua de riego, el drenaje y el balance de lixiviación, no de la fijación de N.",
+    "alcance": "Estas reglas habilitan un plan de 3–5 años solo de forma indicativa. Faltan un modelo cuantitativo de N y de sales, y un calendario fenológico local validado parcela a parcela."
+  },
+  "familias": {
+    "Fabaceae": [
+      "alfalfa",
+      "haba",
+      "arveja"
+    ],
+    "Solanaceae": [
+      "papa",
+      "paprika"
+    ],
+    "Amaryllidaceae": [
+      "cebolla",
+      "ajo"
+    ],
+    "Poaceae": [
+      "cebada",
+      "maiz_amilaceo",
+      "maiz_choclo",
+      "trigo"
+    ],
+    "Amaranthaceae": [
+      "quinua"
+    ],
+    "Asteraceae": [
+      "alcachofa"
+    ]
+  },
+  "reglas": [
+    {
+      "id": "evitar_misma_familia_seguida",
+      "tipo": "restriccion_sucesion",
+      "enunciado": "Evitar sembrar de forma consecutiva dos cultivos de la misma familia botánica.",
+      "aplica_a": "todas las familias del catálogo",
+      "parametros": {
+        "separacion_minima_campanias": 1
+      },
+      "fuente": "Principio general de rotación / MIP, recogido también en materiales de extensión agraria. En Arequipa, el folleto de quinua orgánica de la Gerencia Regional de Agricultura (Andaray y zonas altoandinas, 2020) insiste en rotar y lista precedentes recomendados para quinua (papa, alfalfa, habas, tarwi, frejol, maíz, cebada, trigo). https://www.agroarequipa.gob.pe/images/boletines/biblioteca/Folleto%20Quinua%202020_compressed.pdf",
+      "confianza": "media",
+      "nota": "Regla preventiva. Excepciones locales (p. ej. dos cereales) deben acordarse con asistencia técnica."
+    },
+    {
+      "id": "solanaceas_periodo_espera_papa",
+      "tipo": "periodo_espera",
+      "enunciado": "No volver a sembrar papa ni otra Solanaceae del catálogo (páprika) en la misma parcela durante 3 a 5 años, para reducir inóculo de nematodos y otras enfermedades del suelo.",
+      "cultivos": [
+        "papa",
+        "paprika"
+      ],
+      "parametros": {
+        "espera_anios_min": 3,
+        "espera_anios_max": 5
+      },
+      "fuente": "INIA, ficha «Nematodo del rosario de la papa»: recomienda rotación de 3 a 5 años con cultivos no susceptibles. https://repositorio.inia.gob.pe/server/api/core/bitstreams/ced3f748-0546-4e17-bc28-47fa5c6479ba/content. SENASA, Guía para la implementación de BPA en papa, también enfatiza la rotación como práctica preventiva. https://www.senasa.gob.pe/senasa/descargasarchivos/2020/07/Guia-BPA-PAPA.pdf",
+      "confianza": "alta",
+      "nota": "El intervalo exacto depende de la plaga o patógeno presente (nematodo del rosario, nematodo del quiste, marchitez, etc.). 3–5 años es el rango publicado por INIA para el nematodo del rosario; no generalizarlo como única receta."
+    },
+    {
+      "id": "alliaceas_periodo_espera",
+      "tipo": "periodo_espera",
+      "enunciado": "Evitar cebolla y ajo consecutivos, y dejar un periodo de espera antes de volver a Alliaceae en la misma parcela. El intervalo se alarga si hay antecedentes de pudrición blanca u otras enfermedades de suelo.",
+      "cultivos": [
+        "cebolla",
+        "ajo"
+      ],
+      "parametros": {
+        "espera_anios_min": 3,
+        "espera_anios_max": 4,
+        "espera_anios_si_pudricion_blanca": null
+      },
+      "fuente": "Práctica de rotación para Allium documentada en materiales de INIA sobre ajo y enfermedades de hortalizas (repositorio INIA). No se localizó en esta revisión un intervalo único y oficial «N años» específico de Arequipa; el rango 3–4 años se marca como indicativo, de confianza media. Si hay pudrición blanca (Sclerotium cepivorum), la literatura agronómica reporta persistencia mucho mayor: no usar un intervalo corto.",
+      "confianza": "media",
+      "nota": "Confirmar el intervalo con SENASA / INIA y el historial sanitario de la parcela. No se copió un plazo de otra región como si fuera norma peruana."
+    },
+    {
+      "id": "leguminosa_tras_cereal",
+      "tipo": "preferencia_sucesion",
+      "enunciado": "Preferir una leguminosa (haba, arveja o, en un esquema de varios años, alfalfa) después de un cereal (trigo, cebada, maíz) para aprovechar el aporte potencial de nitrógeno y romper el ciclo de plagas de gramíneas.",
+      "predecesores": [
+        "cebada",
+        "maiz_amilaceo",
+        "maiz_choclo",
+        "trigo"
+      ],
+      "sucesores_preferidos": [
+        "alfalfa",
+        "haba",
+        "arveja"
+      ],
+      "fuente": "Principio agronómico clásico de rotación cereal–leguminosa. El folleto GEROA 2020 de quinua lista habas y alfalfa entre los precedentes recomendados, en un esquema de rotación (no como modelo de N). https://www.agroarequipa.gob.pe/images/boletines/biblioteca/Folleto%20Quinua%202020_compressed.pdf",
+      "confianza": "media",
+      "nota": "Es una preferencia, no una obligación. fija_nitrogeno=true no cuantifica el N residual ni justifica reducir la fertilización sin un análisis de suelo. Tampoco reduce salinidad."
+    },
+    {
+      "id": "alfalfa_perenne_3_5_anios",
+      "tipo": "permanencia",
+      "enunciado": "La alfalfa se maneja como perenne: se instala y se mantiene varios años con cortes sucesivos antes de renovar el alfalfar e insertar cultivos anuales.",
+      "cultivos": [
+        "alfalfa"
+      ],
+      "parametros": {
+        "anios_plantacion_min": 3,
+        "anios_plantacion_max": 5
+      },
+      "fuente": "FAO-56 Tabla 11 describe la alfalfa como una sucesión de ciclos de corte, no como un cultivo anual. La ESCO 2024-2025 de MIDAGRI para alfalfa en Arequipa la trata como cultivo permanente con múltiples cortes comerciales e integración pecuaria. https://cdn.www.gob.pe/uploads/document/file/10646051/7710817-costos-de-produccion-de-principales-cultivos.pdf. El rango 3–5 años de duración del alfalfar es una práctica habitual de manejo, no un parámetro medido por la ESCO; confianza media.",
+      "confianza": "media",
+      "nota": "Ajustar la vida útil del alfalfar con la junta de usuarios y el estado del stand (malezas, rendimiento de corte)."
+    },
+    {
+      "id": "alcachofa_perenne",
+      "tipo": "permanencia",
+      "enunciado": "La alcachofa es una hortaliza perenne; no se rota como un cultivo anual de un solo ciclo.",
+      "cultivos": [
+        "alcachofa"
+      ],
+      "parametros": {
+        "dias_ciclo_primer_anio_fao56": 360,
+        "dias_ciclo_segundo_anio_fao56": 325
+      },
+      "fuente": "FAO-56 Tabla 11, filas Artichoke first year / second year (California).",
+      "confianza": "alta",
+      "nota": "Las duraciones son de California; el número de años de la plantación en Arequipa debe ajustarse localmente."
+    },
+    {
+      "id": "calendario_quinua_campana_grande",
+      "tipo": "ventana_calendario",
+      "enunciado": "Ventana principal de siembra de quinua: setiembre a noviembre (pico en octubre a escala nacional); cosecha principalmente entre abril y junio. En Arequipa con riego el ciclo puede acortarse a unos 5 meses.",
+      "cultivos": [
+        "quinua"
+      ],
+      "parametros": {
+        "siembra_meses": [
+          9,
+          10,
+          11
+        ],
+        "cosecha_meses": [
+          4,
+          5,
+          6
+        ],
+        "ciclo_riego_arequipa_meses": 5
+      },
+      "fuente": "MIDAGRI, Marco Orientador de Cultivos de la campaña agrícola 2025/2026, estacionalidad de siembras y cosechas de quinua (84,2 % de las siembras nacionales entre setiembre y noviembre; 84,7 % de la cosecha entre abril y junio; nota de ciclo de 5 meses en Arequipa con irrigación). https://cdn.www.gob.pe/uploads/document/file/8728112/7220015-moc-campana-agricola-2025-2026.pdf",
+      "confianza": "alta",
+      "nota": "Es una ventana nacional / regional, no un calendario de una parcela piloto."
+    },
+    {
+      "id": "calendario_quinua_campana_chica_altoandina",
+      "tipo": "ventana_calendario",
+      "enunciado": "En zonas altoandinas de Arequipa existe una campaña chica de quinua: siembra del 30 de marzo al 30 de mayo, con variedades precoces (~150 días).",
+      "cultivos": [
+        "quinua"
+      ],
+      "parametros": {
+        "siembra_inicio": "03-30",
+        "siembra_fin": "05-30",
+        "ciclo_dias_aprox": 150,
+        "ambito": "altoandino"
+      },
+      "fuente": "Gerencia Regional de Agricultura Arequipa, folleto «Cultivo de quinua orgánica en el distrito de Andaray y zonas altoandinas de la región Arequipa» (2020), sección de épocas de siembra. https://www.agroarequipa.gob.pe/images/boletines/biblioteca/Folleto%20Quinua%202020_compressed.pdf",
+      "confianza": "media",
+      "nota": "Aplica a zonas altoandinas (p. ej. Andaray), no necesariamente a Majes, La Joya o la Campiña irrigada."
+    },
+    {
+      "id": "calendarios_hortalizas_y_cereales_pendiente_local",
+      "tipo": "ventana_calendario",
+      "enunciado": "Papa, cebolla, ajo, maíz y alfalfa se cultivan en varias ventanas al año en los valles irrigados de Arequipa (campaña grande / chica, bajo riego). No se asigna aquí un mes único de siembra por falta de un calendario oficial parcelario unificado para las tres zonas piloto.",
+      "cultivos": [
+        "papa",
+        "cebolla",
+        "ajo",
+        "maiz_amilaceo",
+        "maiz_choclo",
+        "haba",
+        "arveja",
+        "alcachofa",
+        "paprika",
+        "trigo",
+        "cebada",
+        "alfalfa"
+      ],
+      "parametros": {},
+      "fuente": "SENAMHI publica boletines agroclimáticos mensuales de la región Arequipa con seguimiento fenológico de papa, ajo, maíz, cebolla y otros (https://www.gob.pe/institucion/senamhi/colecciones/1154-boletin-agroclimatica-region-arequipa). La Gerencia Regional de Agricultura publica documentos de campaña agrícola por provincia (https://www.agroarequipa.gob.pe/index.php/campana-agricola). Esos boletines deben consultarse para la campaña vigente; no se inventaron meses de siembra.",
+      "confianza": "baja",
+      "nota": "El motor puede usar las duraciones FAO-56 como longitud de ciclo, no como fecha de siembra."
+    }
+  ],
+  "como_usar_en_el_motor": {
+    "sucesion": "Al armar una rotación de 3–5 años, rechazar (o penalizar) pares que violen restricciones de familia o periodos de espera.",
+    "preferencias": "Bonificar leguminosa tras cereal; no lo exija si el productor tiene otra razón agronómica documentada.",
+    "perennes": "Alfalfa y alcachofa ocupan la parcela varios años; no las intercale como un cultivo anual de una sola campaña.",
+    "salinidad": "Las reglas de rotación no modelan la evolución de ECe. No interpretar una leguminosa o la alfalfa como 'mejadora de salinidad'.",
+    "dato_faltante": "En zonas con estado_dato=faltante (La Joya) no puntuar por salinidad; sí se pueden aplicar reglas de sucesión y calendario."
+  }
+}

@@ -1,0 +1,871 @@
+{
+  "meta": {
+    "version": "1.2",
+    "descripcion": "Catálogo de cultivos para el motor de rotación Green Orbit (Arequipa).",
+    "n_cultivos": 13,
+    "fuentes_principales": {
+      "salinidad_fao29": "Ayers, R.S. y Westcot, D.W. (1985). Water quality for agriculture. FAO Irrigation and Drainage Paper 29 Rev.1, Tabla 4 (adaptada de Maas y Hoffman 1977 y Maas 1984). https://www.fao.org/4/t0234e/t0234e03.htm",
+      "salinidad_fao61": "Maas, E.V. y Grattan, S.R., en FAO Irrigation and Drainage Paper 61, Anexo 1, Tabla A1.1 (umbrales y pendientes Maas-Hoffman actualizados). https://www.fao.org/4/y4263e/y4263e0e.htm",
+      "kc_fao56": "Allen, R.G., Pereira, L.S., Raes, D. y Smith, M. (1998). Crop evapotranspiration. FAO Irrigation and Drainage Paper 56, Tablas 11 (duración de etapas) y 12 (Kc). https://www.fao.org/4/x0490e/x0490e00.htm — Kc: https://www.fao.org/4/x0490e/x0490e0b.htm",
+      "economia": "MIDAGRI SIEA, Anuario Producción Agrícola 2023 (Cuadros 3, 4 y 5). Descarga: https://cdn.www.gob.pe/uploads/document/file/9547451/2730325-cuadros-en-excel-del-anuario-produccion-agricola-2023.xlsx. Página: https://www.gob.pe/institucion/midagri/informes-publicaciones/2730325-compendio-anual-de-produccion-agricola",
+      "costos": "MIDAGRI, Dirección de Estudios Económicos (2026). Análisis económico de los costos de producción referenciales de principales cultivos en el Perú. Encuesta de Costos de Producción (ESCO) 2024-2025, Proyecto PIADER. Cuadro N.° 1 y Cuadro N.° 4. https://cdn.www.gob.pe/uploads/document/file/10646051/7710817-costos-de-produccion-de-principales-cultivos.pdf"
+    },
+    "motor_salinidad": {
+      "formula": "Y(%) = 100 - b * (ECe - a), si ECe > a; Y = 100 si ECe <= a; recortar a [0, 100]",
+      "a": "ece_umbral_inicio_perdida (inicio de reducción de rendimiento, NO tolerancia máxima)",
+      "b": "pendiente_pct_por_dSm",
+      "ece_rendimiento_50": "a + 50/b  (ECe al 50% de rendimiento)",
+      "ece_rendimiento_0": "a + 100/b  (ECe al 0% de rendimiento)",
+      "regla_descarte": "Descartar un cultivo solo si Y < y_min, con y_min configurable (valor por defecto recomendado: 50). NUNCA descartar con ECe > umbral: en Majes (ECe estimada 14.57 dS/m) esa regla dejaría el catálogo vacío, aunque quinua y cebada conservan Y > 50% con los parámetros del paquete.",
+      "y_min_por_defecto": 50,
+      "dato_faltante": "Si la zona tiene ece_estimada_dSm = null (estado_dato=faltante), no convertir a 0. No puntuar por salinidad; devolver comparación climática y pedir una medición de ECe."
+    },
+    "aviso": "Los umbrales FAO son guías relativas, no recetas locales (el propio FAO-29 lo advierte). Las duraciones de etapa de la Tabla 11 de FAO-56 son referencias de otras regiones; completar los campos no equivale a validarlas para Arequipa. La propia FAO-56 pide adaptar etapas y Kc con observación local. fija_nitrogeno=true no cuantifica el N residual ni implica reducción de salinidad. y_min (por defecto 50 %) es un supuesto configurable del prototipo, no un umbral FAO."
+  },
+  "cultivos": [
+    {
+      "id": "alfalfa",
+      "nombre": "Alfalfa",
+      "nombre_cientifico": "Medicago sativa",
+      "familia": "Fabaceae",
+      "fija_nitrogeno": true,
+      "salinidad": {
+        "ece_umbral_inicio_perdida": 2.0,
+        "pendiente_pct_por_dSm": 7.3,
+        "ece_rendimiento_50": 8.85,
+        "ece_rendimiento_0": 15.7,
+        "modelo": "Maas-Hoffman: Y(%) = 100 - b*(ECe - a), para ECe > a; Y=100 si ECe <= a; recortar a 0-100",
+        "calificacion": "MS",
+        "cultivo_en_tabla": "Alfalfa (Medicago sativa)",
+        "fuente": "Ayers, R.S. y Westcot, D.W. (1985). Water quality for agriculture. FAO Irrigation and Drainage Paper 29 Rev.1, Tabla 4 (adaptada de Maas y Hoffman 1977 y Maas 1984). https://www.fao.org/4/t0234e/t0234e03.htm",
+        "nota": "Umbral = ECe al 100% de rendimiento en Tabla 4 (2.0 dS/m). Pendiente canónica de Maas y Hoffman (7.3 % por dS/m), coherente con la Tabla 4 (50% de rendimiento a 8.8 dS/m).",
+        "aviso_motor": "ece_umbral_inicio_perdida es el valor 'a' (ECe al 100% de rendimiento), no una tolerancia máxima. El motor debe puntuar por rendimiento relativo Y = 100 - b*(ECe - a) recortado a [0, 100], y descartar solo si Y queda por debajo de un mínimo configurable (por defecto 50%). Nunca descartar con la regla ECe > umbral."
+      },
+      "kc": {
+        "kc_ini": 0.4,
+        "kc_mid": 0.95,
+        "kc_end": 0.9,
+        "duracion_etapas_dias": {
+          "ini": 10,
+          "dev": 30,
+          "mid": 25,
+          "late": 10,
+          "total": 75,
+          "region_tabla11": "Alfalfa, 1st cutting cycle, Idaho, USA (abril / última helada -4 °C)",
+          "ciclo": "primer_corte",
+          "alternativa_otros_cortes": {
+            "ini": 5,
+            "dev": 20,
+            "mid": 10,
+            "late": 10,
+            "total": 45,
+            "region_tabla11": "Alfalfa, other cutting cycles, Idaho, USA (junio)"
+          },
+          "alternativa_california": {
+            "primer_corte": {
+              "ini": 10,
+              "dev": 20,
+              "mid": 20,
+              "late": 10,
+              "total": 60,
+              "region_tabla11": "Calif., USA, enero"
+            },
+            "otros_cortes": {
+              "ini": 5,
+              "dev": 10,
+              "mid": 10,
+              "late": 5,
+              "total": 30,
+              "region_tabla11": "Calif., USA, marzo"
+            }
+          },
+          "nota": "Valores oficiales de FAO-56 Tabla 11 (Idaho). En Arequipa irrigada la alfalfa es perenne y se corta varias veces al año (ESCO 2024-2025 reporta múltiples cortes comerciales): tras el establecimiento, usar las duraciones de 'otros cortes' (45 días en el ejemplo de Idaho). Ajustar el intervalo de corte con la junta de usuarios / INIA. No hay una única duración anual de etapas."
+        },
+        "fuente": "Allen, R.G., Pereira, L.S., Raes, D. y Smith, M. (1998). Crop evapotranspiration. FAO Irrigation and Drainage Paper 56, Tablas 11 (duración de etapas) y 12 (Kc). https://www.fao.org/4/x0490e/x0490e00.htm — Kc: https://www.fao.org/4/x0490e/x0490e0b.htm",
+        "nota": "Kc de 'Alfalfa hay — averaged cutting effects' (Tabla 12). Alternativa por corte individual: 0.40 / 1.20 / 1.15.",
+        "kc_por_corte": {
+          "kc_ini": 0.4,
+          "kc_mid": 1.2,
+          "kc_end": 1.15
+        }
+      },
+      "economia": {
+        "rendimiento_t_ha": 69.759,
+        "rendimiento_kg_ha": 69759.4,
+        "precio_chacra_soles_kg": 0.128,
+        "produccion_regional_t": 2523965.8,
+        "anio": 2023,
+        "region": "Arequipa",
+        "fuente": "MIDAGRI SIEA, Anuario Producción Agrícola 2023 (Cuadros 3, 4 y 5). Descarga: https://cdn.www.gob.pe/uploads/document/file/9547451/2730325-cuadros-en-excel-del-anuario-produccion-agricola-2023.xlsx. Página: https://www.gob.pe/institucion/midagri/informes-publicaciones/2730325-compendio-anual-de-produccion-agricola",
+        "nota": "Promedio departamental 2023. El rendimiento (~69.8 t/ha) y el precio (~0.128 S/kg) corresponden a alfalfa forrajera en verde, típicos de Arequipa; no son equivalentes a heno seco.",
+        "unidad_rendimiento": "t/ha de forraje verde (no heno seco)",
+        "ingreso_bruto_referencial_S_ha": 8929.2,
+        "nota_ingreso": "Ingreso bruto referencial = rendimiento_kg_ha × precio_chacra_soles_kg (promedios departamentales SIEA 2023). No es un margen: no descuenta costos.",
+        "ciclo": {
+          "tipo": "perenne",
+          "meses_productivos_por_anio": 12,
+          "duracion_plantacion_meses": {
+            "min": 36,
+            "max": 60
+          },
+          "duracion_plantacion_nota": "Rango habitual de 3 a 5 años de un alfalfar antes de renovarlo; no es un dato ESCO ni FAO. Ajustar con la junta de usuarios / INIA. Confianza media.",
+          "base_comparacion_meses": 12,
+          "nota": "Para comparar con cultivos anuales, usar el flujo anual (dividir ingresos y costos por 12 meses)."
+        },
+        "ingreso_bruto_referencial_S_ha_mes": 744.1,
+        "nota_normalizacion_mensual": "ingreso_bruto_referencial_S_ha_mes = ingreso bruto / base_comparacion_meses (12 en perennes; duración de ciclo en anuales). Sirve para comparar cultivos de distinta duración; no equivale a un flujo de caja real.",
+        "costo_produccion_S_ha": 7118,
+        "costo_detalle": {
+          "costo_directo_S_ha": 6748,
+          "costo_indirecto_S_ha": 370,
+          "costo_produccion_S_ha": 7118,
+          "rendimiento_esco_kg_ha": 41528,
+          "ingreso_total_esco_S_ha": 6101,
+          "margen_referencial_S_ha": -1017,
+          "relacion_ingreso_costo": 0.86,
+          "anio_encuesta": "2024-2025",
+          "region": "Arequipa",
+          "fuente": "MIDAGRI, Dirección de Estudios Económicos (2026). Análisis económico de los costos de producción referenciales de principales cultivos en el Perú. Encuesta de Costos de Producción (ESCO) 2024-2025, Proyecto PIADER. Cuadro N.° 1 y Cuadro N.° 4. https://cdn.www.gob.pe/uploads/document/file/10646051/7710817-costos-de-produccion-de-principales-cultivos.pdf",
+          "nota": "Costo y margen oficiales de la ESCO 2024-2025 para alfalfa en Arequipa (cultivo permanente, múltiples cortes, integrado con la actividad pecuaria; el documento advierte que requiere un tratamiento particular y que los márgenes son promedios estadísticos, no la rentabilidad de una parcela). NO mezclar este margen con el ingreso_bruto_referencial calculado a partir del Anuario SIEA 2023 (otro año, otro rendimiento: 69 759 kg/ha vs 41 528 kg/ha en la ESCO). El margen_referencial_S_ha que se informa aquí es el de la propia ESCO (ingreso ESCO − costo ESCO)."
+        },
+        "margen_referencial_S_ha": -1017,
+        "margen_fuente": "MIDAGRI, Dirección de Estudios Económicos (2026). Análisis económico de los costos de producción referenciales de principales cultivos en el Perú. Encuesta de Costos de Producción (ESCO) 2024-2025, Proyecto PIADER. Cuadro N.° 1 y Cuadro N.° 4. https://cdn.www.gob.pe/uploads/document/file/10646051/7710817-costos-de-produccion-de-principales-cultivos.pdf",
+        "margen_nota": "Costo y margen oficiales de la ESCO 2024-2025 para alfalfa en Arequipa (cultivo permanente, múltiples cortes, integrado con la actividad pecuaria; el documento advierte que requiere un tratamiento particular y que los márgenes son promedios estadísticos, no la rentabilidad de una parcela). NO mezclar este margen con el ingreso_bruto_referencial calculado a partir del Anuario SIEA 2023 (otro año, otro rendimiento: 69 759 kg/ha vs 41 528 kg/ha en la ESCO). El margen_referencial_S_ha que se informa aquí es el de la propia ESCO (ingreso ESCO − costo ESCO)."
+      }
+    },
+    {
+      "id": "papa",
+      "nombre": "Papa",
+      "nombre_cientifico": "Solanum tuberosum",
+      "familia": "Solanaceae",
+      "fija_nitrogeno": false,
+      "salinidad": {
+        "ece_umbral_inicio_perdida": 1.7,
+        "pendiente_pct_por_dSm": 12.0,
+        "ece_rendimiento_50": 5.87,
+        "ece_rendimiento_0": 10.03,
+        "modelo": "Maas-Hoffman: Y(%) = 100 - b*(ECe - a), para ECe > a; Y=100 si ECe <= a; recortar a 0-100",
+        "calificacion": "MS",
+        "cultivo_en_tabla": "Potato (Solanum tuberosum)",
+        "fuente": "Ayers, R.S. y Westcot, D.W. (1985). Water quality for agriculture. FAO Irrigation and Drainage Paper 29 Rev.1, Tabla 4 (adaptada de Maas y Hoffman 1977 y Maas 1984). https://www.fao.org/4/t0234e/t0234e03.htm",
+        "nota": "Tabla 4, papa. Pendiente 12 %/dS/m (50% de rendimiento a 5.9 dS/m).",
+        "aviso_motor": "ece_umbral_inicio_perdida es el valor 'a' (ECe al 100% de rendimiento), no una tolerancia máxima. El motor debe puntuar por rendimiento relativo Y = 100 - b*(ECe - a) recortado a [0, 100], y descartar solo si Y queda por debajo de un mínimo configurable (por defecto 50%). Nunca descartar con la regla ECe > umbral."
+      },
+      "kc": {
+        "kc_ini": 0.5,
+        "kc_mid": 1.15,
+        "kc_end": 0.75,
+        "duracion_etapas_dias": {
+          "ini": 30,
+          "dev": 35,
+          "mid": 50,
+          "late": 25,
+          "total": 140,
+          "region_tabla11": "Potato, Calif. Desert, USA, siembra diciembre"
+        },
+        "fuente": "Allen, R.G., Pereira, L.S., Raes, D. y Smith, M. (1998). Crop evapotranspiration. FAO Irrigation and Drainage Paper 56, Tablas 11 (duración de etapas) y 12 (Kc). https://www.fao.org/4/x0490e/x0490e00.htm — Kc: https://www.fao.org/4/x0490e/x0490e0b.htm",
+        "nota": "Kc end ≈ 0.40 si se seca la hoja antes de la cosecha (nota 4, Tabla 12). Las duraciones de Tabla 11 son indicativas; en Arequipa varían por variedad y campaña."
+      },
+      "economia": {
+        "rendimiento_t_ha": 35.328,
+        "rendimiento_kg_ha": 35327.9,
+        "precio_chacra_soles_kg": 1.196,
+        "produccion_regional_t": 329291.5,
+        "anio": 2023,
+        "region": "Arequipa",
+        "fuente": "MIDAGRI SIEA, Anuario Producción Agrícola 2023 (Cuadros 3, 4 y 5). Descarga: https://cdn.www.gob.pe/uploads/document/file/9547451/2730325-cuadros-en-excel-del-anuario-produccion-agricola-2023.xlsx. Página: https://www.gob.pe/institucion/midagri/informes-publicaciones/2730325-compendio-anual-de-produccion-agricola",
+        "nota": "Promedio departamental de Arequipa, no margen neto ni precio de una parcela piloto.",
+        "ingreso_bruto_referencial_S_ha": 42252.2,
+        "nota_ingreso": "Ingreso bruto referencial = rendimiento_kg_ha × precio_chacra_soles_kg (promedios departamentales SIEA 2023). No es un margen: no descuenta costos.",
+        "ciclo": {
+          "tipo": "anual",
+          "dias_ciclo_tabla11": 140,
+          "meses_ciclo": 4.6,
+          "base_comparacion_meses": 4.6,
+          "nota": "meses_ciclo = días de la fila Tabla 11 / 30.437. Es una duración indicativa, no el calendario de Arequipa."
+        },
+        "ingreso_bruto_referencial_S_ha_mes": 9185.3,
+        "nota_normalizacion_mensual": "ingreso_bruto_referencial_S_ha_mes = ingreso bruto / base_comparacion_meses (12 en perennes; duración de ciclo en anuales). Sirve para comparar cultivos de distinta duración; no equivale a un flujo de caja real.",
+        "costo_produccion_S_ha": null,
+        "margen_referencial_S_ha": null,
+        "costo_nota": "No se encontró un costo de producción oficial MIDAGRI/INIA/Agro Rural específico de Arequipa para este cultivo. La ESCO 2024-2025 cubre en Arequipa solo alfalfa; hay costos de papa blanca (Huánuco, Ayacucho) y maíz amiláceo (Cusco, Apurímac) que NO se transfieren a Arequipa. Fuente consultada: MIDAGRI, Dirección de Estudios Económicos (2026). Análisis económico de los costos de producción referenciales de principales cultivos en el Perú. Encuesta de Costos de Producción (ESCO) 2024-2025, Proyecto PIADER. Cuadro N.° 1 y Cuadro N.° 4. https://cdn.www.gob.pe/uploads/document/file/10646051/7710817-costos-de-produccion-de-principales-cultivos.pdf"
+      }
+    },
+    {
+      "id": "cebolla",
+      "nombre": "Cebolla (cabeza)",
+      "nombre_cientifico": "Allium cepa",
+      "familia": "Amaryllidaceae",
+      "fija_nitrogeno": false,
+      "salinidad": {
+        "ece_umbral_inicio_perdida": 1.2,
+        "pendiente_pct_por_dSm": 16.0,
+        "ece_rendimiento_50": 4.33,
+        "ece_rendimiento_0": 7.45,
+        "modelo": "Maas-Hoffman: Y(%) = 100 - b*(ECe - a), para ECe > a; Y=100 si ECe <= a; recortar a 0-100",
+        "calificacion": "S",
+        "cultivo_en_tabla": "Onion (Allium cepa)",
+        "fuente": "Ayers, R.S. y Westcot, D.W. (1985). Water quality for agriculture. FAO Irrigation and Drainage Paper 29 Rev.1, Tabla 4 (adaptada de Maas y Hoffman 1977 y Maas 1984). https://www.fao.org/4/t0234e/t0234e03.htm",
+        "nota": "Tabla 4, onion. Cultivo sensible. Pendiente 16 %/dS/m (50% a 4.3 dS/m).",
+        "aviso_motor": "ece_umbral_inicio_perdida es el valor 'a' (ECe al 100% de rendimiento), no una tolerancia máxima. El motor debe puntuar por rendimiento relativo Y = 100 - b*(ECe - a) recortado a [0, 100], y descartar solo si Y queda por debajo de un mínimo configurable (por defecto 50%). Nunca descartar con la regla ECe > umbral."
+      },
+      "kc": {
+        "kc_ini": 0.7,
+        "kc_mid": 1.05,
+        "kc_end": 0.75,
+        "duracion_etapas_dias": {
+          "ini": 15,
+          "dev": 25,
+          "mid": 70,
+          "late": 40,
+          "total": 150,
+          "region_tabla11": "Onion (dry), valores típicos de Tabla 11 para cebolla de bulbo (verificar en la tabla original según fecha de siembra)"
+        },
+        "fuente": "Allen, R.G., Pereira, L.S., Raes, D. y Smith, M. (1998). Crop evapotranspiration. FAO Irrigation and Drainage Paper 56, Tablas 11 (duración de etapas) y 12 (Kc). https://www.fao.org/4/x0490e/x0490e00.htm — Kc: https://www.fao.org/4/x0490e/x0490e0b.htm",
+        "nota": "Kc de 'Onions — dry' (Tabla 12). No usar los de cebolla verde (Kc end más alto)."
+      },
+      "economia": {
+        "rendimiento_t_ha": 39.975,
+        "rendimiento_kg_ha": 39975.3,
+        "precio_chacra_soles_kg": 1.46,
+        "produccion_regional_t": 332634.8,
+        "anio": 2023,
+        "region": "Arequipa",
+        "fuente": "MIDAGRI SIEA, Anuario Producción Agrícola 2023 (Cuadros 3, 4 y 5). Descarga: https://cdn.www.gob.pe/uploads/document/file/9547451/2730325-cuadros-en-excel-del-anuario-produccion-agricola-2023.xlsx. Página: https://www.gob.pe/institucion/midagri/informes-publicaciones/2730325-compendio-anual-de-produccion-agricola",
+        "nota": "Promedio departamental de Arequipa, no margen neto ni precio de una parcela piloto.",
+        "ingreso_bruto_referencial_S_ha": 58363.9,
+        "nota_ingreso": "Ingreso bruto referencial = rendimiento_kg_ha × precio_chacra_soles_kg (promedios departamentales SIEA 2023). No es un margen: no descuenta costos.",
+        "ciclo": {
+          "tipo": "anual",
+          "dias_ciclo_tabla11": 150,
+          "meses_ciclo": 4.93,
+          "base_comparacion_meses": 4.93,
+          "nota": "meses_ciclo = días de la fila Tabla 11 / 30.437. Es una duración indicativa, no el calendario de Arequipa."
+        },
+        "ingreso_bruto_referencial_S_ha_mes": 11838.5,
+        "nota_normalizacion_mensual": "ingreso_bruto_referencial_S_ha_mes = ingreso bruto / base_comparacion_meses (12 en perennes; duración de ciclo en anuales). Sirve para comparar cultivos de distinta duración; no equivale a un flujo de caja real.",
+        "costo_produccion_S_ha": null,
+        "margen_referencial_S_ha": null,
+        "costo_nota": "No se encontró un costo de producción oficial MIDAGRI/INIA/Agro Rural específico de Arequipa para este cultivo. La ESCO 2024-2025 cubre en Arequipa solo alfalfa; hay costos de papa blanca (Huánuco, Ayacucho) y maíz amiláceo (Cusco, Apurímac) que NO se transfieren a Arequipa. Fuente consultada: MIDAGRI, Dirección de Estudios Económicos (2026). Análisis económico de los costos de producción referenciales de principales cultivos en el Perú. Encuesta de Costos de Producción (ESCO) 2024-2025, Proyecto PIADER. Cuadro N.° 1 y Cuadro N.° 4. https://cdn.www.gob.pe/uploads/document/file/10646051/7710817-costos-de-produccion-de-principales-cultivos.pdf"
+      }
+    },
+    {
+      "id": "ajo",
+      "nombre": "Ajo",
+      "nombre_cientifico": "Allium sativum",
+      "familia": "Amaryllidaceae",
+      "fija_nitrogeno": false,
+      "salinidad": {
+        "ece_umbral_inicio_perdida": 3.9,
+        "pendiente_pct_por_dSm": 14.3,
+        "ece_rendimiento_50": 7.4,
+        "ece_rendimiento_0": 10.89,
+        "modelo": "Maas-Hoffman: Y(%) = 100 - b*(ECe - a), para ECe > a; Y=100 si ECe <= a; recortar a 0-100",
+        "calificacion": "MS",
+        "cultivo_en_tabla": "Garlic (Allium sativum L.), bulb yield",
+        "fuente": "Maas, E.V. y Grattan, S.R., en FAO Irrigation and Drainage Paper 61, Anexo 1, Tabla A1.1 (umbrales y pendientes Maas-Hoffman actualizados). https://www.fao.org/4/y4263e/y4263e0e.htm Fuente primaria: Francois, L.E. (1994). Yield and Quality Response of Salt-stressed Garlic. HortScience 29(11): 1314-1317.",
+        "nota": "NO figura en la Tabla 4 de FAO-29 (1985). Se usa el umbral 3.9 dS/m y la pendiente 14.3 %/dS/m del Anexo 1 de FAO-61 (Francois 1994). El umbral es más alto que el de la cebolla, pero la pendiente es fuerte.",
+        "aviso_motor": "ece_umbral_inicio_perdida es el valor 'a' (ECe al 100% de rendimiento), no una tolerancia máxima. El motor debe puntuar por rendimiento relativo Y = 100 - b*(ECe - a) recortado a [0, 100], y descartar solo si Y queda por debajo de un mínimo configurable (por defecto 50%). Nunca descartar con la regla ECe > umbral."
+      },
+      "kc": {
+        "kc_ini": 0.7,
+        "kc_mid": 1.0,
+        "kc_end": 0.7,
+        "duracion_etapas_dias": {
+          "ini": 15,
+          "dev": 25,
+          "mid": 70,
+          "late": 40,
+          "total": 150,
+          "nota": "FAO-56 Tabla 11 no detalla al ajo por separado; las duraciones se tomaron de cebolla de bulbo (cultivo del mismo género). ESTIMADO de fenología, no una fila propia de la Tabla 11."
+        },
+        "fuente": "Allen, R.G., Pereira, L.S., Raes, D. y Smith, M. (1998). Crop evapotranspiration. FAO Irrigation and Drainage Paper 56, Tablas 11 (duración de etapas) y 12 (Kc). https://www.fao.org/4/x0490e/x0490e00.htm — Kc: https://www.fao.org/4/x0490e/x0490e0b.htm",
+        "nota": "Kc de 'Garlic' en Tabla 12 (Kc ini 0.70, mid 1.00, end 0.70, h ≈ 0.3 m)."
+      },
+      "economia": {
+        "rendimiento_t_ha": 13.064,
+        "rendimiento_kg_ha": 13063.9,
+        "precio_chacra_soles_kg": 3.756,
+        "produccion_regional_t": 67344.2,
+        "anio": 2023,
+        "region": "Arequipa",
+        "fuente": "MIDAGRI SIEA, Anuario Producción Agrícola 2023 (Cuadros 3, 4 y 5). Descarga: https://cdn.www.gob.pe/uploads/document/file/9547451/2730325-cuadros-en-excel-del-anuario-produccion-agricola-2023.xlsx. Página: https://www.gob.pe/institucion/midagri/informes-publicaciones/2730325-compendio-anual-de-produccion-agricola",
+        "nota": "Promedio departamental de Arequipa, no margen neto ni precio de una parcela piloto.",
+        "ingreso_bruto_referencial_S_ha": 49068.0,
+        "nota_ingreso": "Ingreso bruto referencial = rendimiento_kg_ha × precio_chacra_soles_kg (promedios departamentales SIEA 2023). No es un margen: no descuenta costos.",
+        "ciclo": {
+          "tipo": "anual",
+          "dias_ciclo_tabla11": 150,
+          "meses_ciclo": 4.93,
+          "base_comparacion_meses": 4.93,
+          "nota": "meses_ciclo = días de la fila Tabla 11 / 30.437. Es una duración indicativa, no el calendario de Arequipa."
+        },
+        "ingreso_bruto_referencial_S_ha_mes": 9952.9,
+        "nota_normalizacion_mensual": "ingreso_bruto_referencial_S_ha_mes = ingreso bruto / base_comparacion_meses (12 en perennes; duración de ciclo en anuales). Sirve para comparar cultivos de distinta duración; no equivale a un flujo de caja real.",
+        "costo_produccion_S_ha": null,
+        "margen_referencial_S_ha": null,
+        "costo_nota": "No se encontró un costo de producción oficial MIDAGRI/INIA/Agro Rural específico de Arequipa para este cultivo. La ESCO 2024-2025 cubre en Arequipa solo alfalfa; hay costos de papa blanca (Huánuco, Ayacucho) y maíz amiláceo (Cusco, Apurímac) que NO se transfieren a Arequipa. Fuente consultada: MIDAGRI, Dirección de Estudios Económicos (2026). Análisis económico de los costos de producción referenciales de principales cultivos en el Perú. Encuesta de Costos de Producción (ESCO) 2024-2025, Proyecto PIADER. Cuadro N.° 1 y Cuadro N.° 4. https://cdn.www.gob.pe/uploads/document/file/10646051/7710817-costos-de-produccion-de-principales-cultivos.pdf"
+      }
+    },
+    {
+      "id": "quinua",
+      "nombre": "Quinua",
+      "nombre_cientifico": "Chenopodium quinoa",
+      "familia": "Amaranthaceae",
+      "fija_nitrogeno": false,
+      "salinidad": {
+        "ece_umbral_inicio_perdida": 8.0,
+        "pendiente_pct_por_dSm": 2.9,
+        "ece_rendimiento_50": 25.24,
+        "ece_rendimiento_0": 42.48,
+        "modelo": "Maas-Hoffman: Y(%) = 100 - b*(ECe - a), para ECe > a; Y=100 si ECe <= a; recortar a 0-100",
+        "calificacion": "T (estimado)",
+        "cultivo_en_tabla": null,
+        "fuente": "NO está en FAO-29 ni en FAO-61. Literatura: Adolf, V.I., Jacobsen, S.-E., Shabala, S. (2013). Salt tolerance mechanisms in quinoa. Environmental and Experimental Botany 92: 43-54. Estimación de 50% de rendimiento cerca de 25 dS/m en Jacobsen y colaboradores (p. ej. Functional Plant Biology, doi:10.1071/fp14132).",
+        "nota": "ESTIMADO. Se fijó el umbral en 8.0 dS/m (análogo a la cebada, cultivo tolerante de la Tabla 4) y la pendiente en 2.9 %/dS/m para que el 50% de rendimiento caiga cerca de 25 dS/m (50/(25-8)≈2.94). La tolerancia es muy varietal. No usar como valor FAO.",
+        "aviso_motor": "ece_umbral_inicio_perdida es el valor 'a' (ECe al 100% de rendimiento), no una tolerancia máxima. El motor debe puntuar por rendimiento relativo Y = 100 - b*(ECe - a) recortado a [0, 100], y descartar solo si Y queda por debajo de un mínimo configurable (por defecto 50%). Nunca descartar con la regla ECe > umbral."
+      },
+      "kc": {
+        "kc_ini": 0.5,
+        "kc_mid": 1.1,
+        "kc_end": 0.7,
+        "duracion_etapas_dias": {
+          "ini": 20,
+          "dev": 30,
+          "mid": 45,
+          "late": 25,
+          "total": 120,
+          "nota": "Duraciones ESTIMADAS / indicativas para valles andinos; no hay fila de quinua en FAO-56 Tabla 11. Ajustar con fenología local (INIA)."
+        },
+        "fuente": "No está en FAO-56 Tabla 12. Kc mid = 1.10 según parametrización FAO-AquaCrop para quinua (Geerts, S. et al., 2009. Simulating yield response of quinoa to water availability with AquaCrop. Agron. J. 101; anexos AquaCrop). Kc ini 0.50 y Kc end 0.70 son valores de literatura para ambientes áridos, no de la Tabla 12.",
+        "nota": "Kc de literatura / AquaCrop, no de FAO-56 Tabla 12."
+      },
+      "economia": {
+        "rendimiento_t_ha": 3.776,
+        "rendimiento_kg_ha": 3775.9,
+        "precio_chacra_soles_kg": 5.527,
+        "produccion_regional_t": 6521.0,
+        "anio": 2023,
+        "region": "Arequipa",
+        "fuente": "MIDAGRI SIEA, Anuario Producción Agrícola 2023 (Cuadros 3, 4 y 5). Descarga: https://cdn.www.gob.pe/uploads/document/file/9547451/2730325-cuadros-en-excel-del-anuario-produccion-agricola-2023.xlsx. Página: https://www.gob.pe/institucion/midagri/informes-publicaciones/2730325-compendio-anual-de-produccion-agricola",
+        "nota": "Promedio departamental de Arequipa, no margen neto ni precio de una parcela piloto.",
+        "ingreso_bruto_referencial_S_ha": 20869.4,
+        "nota_ingreso": "Ingreso bruto referencial = rendimiento_kg_ha × precio_chacra_soles_kg (promedios departamentales SIEA 2023). No es un margen: no descuenta costos.",
+        "ciclo": {
+          "tipo": "anual",
+          "dias_ciclo_tabla11": 120,
+          "meses_ciclo": 3.94,
+          "base_comparacion_meses": 3.94,
+          "nota": "meses_ciclo = días de la fila Tabla 11 / 30.437. Es una duración indicativa, no el calendario de Arequipa."
+        },
+        "ingreso_bruto_referencial_S_ha_mes": 5296.8,
+        "nota_normalizacion_mensual": "ingreso_bruto_referencial_S_ha_mes = ingreso bruto / base_comparacion_meses (12 en perennes; duración de ciclo en anuales). Sirve para comparar cultivos de distinta duración; no equivale a un flujo de caja real.",
+        "costo_produccion_S_ha": null,
+        "margen_referencial_S_ha": null,
+        "costo_nota": "No se encontró un costo de producción oficial MIDAGRI/INIA/Agro Rural específico de Arequipa para este cultivo. La ESCO 2024-2025 cubre en Arequipa solo alfalfa; hay costos de papa blanca (Huánuco, Ayacucho) y maíz amiláceo (Cusco, Apurímac) que NO se transfieren a Arequipa. Fuente consultada: MIDAGRI, Dirección de Estudios Económicos (2026). Análisis económico de los costos de producción referenciales de principales cultivos en el Perú. Encuesta de Costos de Producción (ESCO) 2024-2025, Proyecto PIADER. Cuadro N.° 1 y Cuadro N.° 4. https://cdn.www.gob.pe/uploads/document/file/10646051/7710817-costos-de-produccion-de-principales-cultivos.pdf"
+      }
+    },
+    {
+      "id": "cebada",
+      "nombre": "Cebada (grano)",
+      "nombre_cientifico": "Hordeum vulgare",
+      "familia": "Poaceae",
+      "fija_nitrogeno": false,
+      "salinidad": {
+        "ece_umbral_inicio_perdida": 8.0,
+        "pendiente_pct_por_dSm": 5.0,
+        "ece_rendimiento_50": 18.0,
+        "ece_rendimiento_0": 28.0,
+        "modelo": "Maas-Hoffman: Y(%) = 100 - b*(ECe - a), para ECe > a; Y=100 si ECe <= a; recortar a 0-100",
+        "calificacion": "T",
+        "cultivo_en_tabla": "Barley (Hordeum vulgare) — grain yield",
+        "fuente": "Ayers, R.S. y Westcot, D.W. (1985). Water quality for agriculture. FAO Irrigation and Drainage Paper 29 Rev.1, Tabla 4 (adaptada de Maas y Hoffman 1977 y Maas 1984). https://www.fao.org/4/t0234e/t0234e03.htm",
+        "nota": "Tabla 4, barley grain. Muy tolerante, pero más sensible en germinación (nota 4: ECe no debe superar 4-5 dS/m en la capa superior en esa fase).",
+        "aviso_motor": "ece_umbral_inicio_perdida es el valor 'a' (ECe al 100% de rendimiento), no una tolerancia máxima. El motor debe puntuar por rendimiento relativo Y = 100 - b*(ECe - a) recortado a [0, 100], y descartar solo si Y queda por debajo de un mínimo configurable (por defecto 50%). Nunca descartar con la regla ECe > umbral."
+      },
+      "kc": {
+        "kc_ini": 0.3,
+        "kc_mid": 1.15,
+        "kc_end": 0.25,
+        "duracion_etapas_dias": {
+          "ini": 15,
+          "dev": 25,
+          "mid": 50,
+          "late": 30,
+          "total": 120,
+          "region_tabla11": "Barley/Oats/Wheat, November, Central India (fila de Tabla 11)"
+        },
+        "fuente": "Allen, R.G., Pereira, L.S., Raes, D. y Smith, M. (1998). Crop evapotranspiration. FAO Irrigation and Drainage Paper 56, Tablas 11 (duración de etapas) y 12 (Kc). https://www.fao.org/4/x0490e/x0490e00.htm — Kc: https://www.fao.org/4/x0490e/x0490e0b.htm",
+        "nota": "Kc de 'Barley' en Tabla 12. Hay otras duraciones en Tabla 11 (p. ej. 40/60/60/40 en clima árido, siembra noviembre)."
+      },
+      "economia": {
+        "rendimiento_t_ha": 2.608,
+        "rendimiento_kg_ha": 2607.8,
+        "precio_chacra_soles_kg": 2.057,
+        "produccion_regional_t": 526.8,
+        "anio": 2023,
+        "region": "Arequipa",
+        "fuente": "MIDAGRI SIEA, Anuario Producción Agrícola 2023 (Cuadros 3, 4 y 5). Descarga: https://cdn.www.gob.pe/uploads/document/file/9547451/2730325-cuadros-en-excel-del-anuario-produccion-agricola-2023.xlsx. Página: https://www.gob.pe/institucion/midagri/informes-publicaciones/2730325-compendio-anual-de-produccion-agricola",
+        "nota": "Promedio departamental de Arequipa, no margen neto ni precio de una parcela piloto.",
+        "nota_adicional": "Se usó cebada grano (no forrajera). El precio de 'Cebada forrajera' en el anuario coincide exactamente con el de avena forrajera y arroz cáscara (posible artefact del cuadro); por eso no se usó.",
+        "ingreso_bruto_referencial_S_ha": 5364.2,
+        "nota_ingreso": "Ingreso bruto referencial = rendimiento_kg_ha × precio_chacra_soles_kg (promedios departamentales SIEA 2023). No es un margen: no descuenta costos.",
+        "ciclo": {
+          "tipo": "anual",
+          "dias_ciclo_tabla11": 120,
+          "meses_ciclo": 3.94,
+          "base_comparacion_meses": 3.94,
+          "nota": "meses_ciclo = días de la fila Tabla 11 / 30.437. Es una duración indicativa, no el calendario de Arequipa."
+        },
+        "ingreso_bruto_referencial_S_ha_mes": 1361.5,
+        "nota_normalizacion_mensual": "ingreso_bruto_referencial_S_ha_mes = ingreso bruto / base_comparacion_meses (12 en perennes; duración de ciclo en anuales). Sirve para comparar cultivos de distinta duración; no equivale a un flujo de caja real.",
+        "costo_produccion_S_ha": null,
+        "margen_referencial_S_ha": null,
+        "costo_nota": "No se encontró un costo de producción oficial MIDAGRI/INIA/Agro Rural específico de Arequipa para este cultivo. La ESCO 2024-2025 cubre en Arequipa solo alfalfa; hay costos de papa blanca (Huánuco, Ayacucho) y maíz amiláceo (Cusco, Apurímac) que NO se transfieren a Arequipa. Fuente consultada: MIDAGRI, Dirección de Estudios Económicos (2026). Análisis económico de los costos de producción referenciales de principales cultivos en el Perú. Encuesta de Costos de Producción (ESCO) 2024-2025, Proyecto PIADER. Cuadro N.° 1 y Cuadro N.° 4. https://cdn.www.gob.pe/uploads/document/file/10646051/7710817-costos-de-produccion-de-principales-cultivos.pdf"
+      }
+    },
+    {
+      "id": "maiz_amilaceo",
+      "nombre": "Maíz amiláceo",
+      "nombre_cientifico": "Zea mays",
+      "familia": "Poaceae",
+      "fija_nitrogeno": false,
+      "salinidad": {
+        "ece_umbral_inicio_perdida": 1.7,
+        "pendiente_pct_por_dSm": 12.0,
+        "ece_rendimiento_50": 5.87,
+        "ece_rendimiento_0": 10.03,
+        "modelo": "Maas-Hoffman: Y(%) = 100 - b*(ECe - a), para ECe > a; Y=100 si ECe <= a; recortar a 0-100",
+        "calificacion": "MS",
+        "cultivo_en_tabla": "Corn (maize) (Zea mays)",
+        "fuente": "Ayers, R.S. y Westcot, D.W. (1985). Water quality for agriculture. FAO Irrigation and Drainage Paper 29 Rev.1, Tabla 4 (adaptada de Maas y Hoffman 1977 y Maas 1984). https://www.fao.org/4/t0234e/t0234e03.htm",
+        "nota": "Tabla 4, corn (maize) grano. Pendiente 12 %/dS/m.",
+        "aviso_motor": "ece_umbral_inicio_perdida es el valor 'a' (ECe al 100% de rendimiento), no una tolerancia máxima. El motor debe puntuar por rendimiento relativo Y = 100 - b*(ECe - a) recortado a [0, 100], y descartar solo si Y queda por debajo de un mínimo configurable (por defecto 50%). Nunca descartar con la regla ECe > umbral."
+      },
+      "kc": {
+        "kc_ini": 0.3,
+        "kc_mid": 1.2,
+        "kc_end": 0.35,
+        "duracion_etapas_dias": {
+          "ini": 30,
+          "dev": 40,
+          "mid": 50,
+          "late": 30,
+          "total": 150,
+          "region_tabla11": "Maize (grain), indicativo de ciclos de ~125-180 días en Tabla 11 (p. ej. España/California ~150 días)"
+        },
+        "fuente": "Allen, R.G., Pereira, L.S., Raes, D. y Smith, M. (1998). Crop evapotranspiration. FAO Irrigation and Drainage Paper 56, Tablas 11 (duración de etapas) y 12 (Kc). https://www.fao.org/4/x0490e/x0490e00.htm — Kc: https://www.fao.org/4/x0490e/x0490e0b.htm",
+        "nota": "Kc end 0.35 corresponde a cosecha de grano seco en campo (nota 11, Tabla 12). El valor alternativo 0.60 es para cosecha con más humedad de grano."
+      },
+      "economia": {
+        "rendimiento_t_ha": 3.247,
+        "rendimiento_kg_ha": 3246.7,
+        "precio_chacra_soles_kg": 4.405,
+        "produccion_regional_t": 8022.6,
+        "anio": 2023,
+        "region": "Arequipa",
+        "fuente": "MIDAGRI SIEA, Anuario Producción Agrícola 2023 (Cuadros 3, 4 y 5). Descarga: https://cdn.www.gob.pe/uploads/document/file/9547451/2730325-cuadros-en-excel-del-anuario-produccion-agricola-2023.xlsx. Página: https://www.gob.pe/institucion/midagri/informes-publicaciones/2730325-compendio-anual-de-produccion-agricola",
+        "nota": "Promedio departamental de Arequipa, no margen neto ni precio de una parcela piloto.",
+        "ingreso_bruto_referencial_S_ha": 14301.7,
+        "nota_ingreso": "Ingreso bruto referencial = rendimiento_kg_ha × precio_chacra_soles_kg (promedios departamentales SIEA 2023). No es un margen: no descuenta costos.",
+        "ciclo": {
+          "tipo": "anual",
+          "dias_ciclo_tabla11": 150,
+          "meses_ciclo": 4.93,
+          "base_comparacion_meses": 4.93,
+          "nota": "meses_ciclo = días de la fila Tabla 11 / 30.437. Es una duración indicativa, no el calendario de Arequipa."
+        },
+        "ingreso_bruto_referencial_S_ha_mes": 2901.0,
+        "nota_normalizacion_mensual": "ingreso_bruto_referencial_S_ha_mes = ingreso bruto / base_comparacion_meses (12 en perennes; duración de ciclo en anuales). Sirve para comparar cultivos de distinta duración; no equivale a un flujo de caja real.",
+        "costo_produccion_S_ha": null,
+        "margen_referencial_S_ha": null,
+        "costo_nota": "No se encontró un costo de producción oficial MIDAGRI/INIA/Agro Rural específico de Arequipa para este cultivo. La ESCO 2024-2025 cubre en Arequipa solo alfalfa; hay costos de papa blanca (Huánuco, Ayacucho) y maíz amiláceo (Cusco, Apurímac) que NO se transfieren a Arequipa. Fuente consultada: MIDAGRI, Dirección de Estudios Económicos (2026). Análisis económico de los costos de producción referenciales de principales cultivos en el Perú. Encuesta de Costos de Producción (ESCO) 2024-2025, Proyecto PIADER. Cuadro N.° 1 y Cuadro N.° 4. https://cdn.www.gob.pe/uploads/document/file/10646051/7710817-costos-de-produccion-de-principales-cultivos.pdf"
+      }
+    },
+    {
+      "id": "maiz_choclo",
+      "nombre": "Maíz choclo",
+      "nombre_cientifico": "Zea mays",
+      "familia": "Poaceae",
+      "fija_nitrogeno": false,
+      "salinidad": {
+        "ece_umbral_inicio_perdida": 1.7,
+        "pendiente_pct_por_dSm": 12.0,
+        "ece_rendimiento_50": 5.87,
+        "ece_rendimiento_0": 10.03,
+        "modelo": "Maas-Hoffman: Y(%) = 100 - b*(ECe - a), para ECe > a; Y=100 si ECe <= a; recortar a 0-100",
+        "calificacion": "MS",
+        "cultivo_en_tabla": "Corn, sweet (maize) (Zea mays)",
+        "fuente": "Ayers, R.S. y Westcot, D.W. (1985). Water quality for agriculture. FAO Irrigation and Drainage Paper 29 Rev.1, Tabla 4 (adaptada de Maas y Hoffman 1977 y Maas 1984). https://www.fao.org/4/t0234e/t0234e03.htm",
+        "nota": "Se usa la fila de corn, sweet (maize) de la Tabla 4, idéntica en umbral y pendiente al maíz grano (1.7 / 12).",
+        "aviso_motor": "ece_umbral_inicio_perdida es el valor 'a' (ECe al 100% de rendimiento), no una tolerancia máxima. El motor debe puntuar por rendimiento relativo Y = 100 - b*(ECe - a) recortado a [0, 100], y descartar solo si Y queda por debajo de un mínimo configurable (por defecto 50%). Nunca descartar con la regla ECe > umbral."
+      },
+      "kc": {
+        "kc_ini": 0.3,
+        "kc_mid": 1.15,
+        "kc_end": 1.05,
+        "duracion_etapas_dias": {
+          "ini": 20,
+          "dev": 30,
+          "mid": 40,
+          "late": 15,
+          "total": 105,
+          "region_tabla11": "Maize (sweet), clima árido (Tabla 11 tiene variantes 80-140 días)"
+        },
+        "fuente": "Allen, R.G., Pereira, L.S., Raes, D. y Smith, M. (1998). Crop evapotranspiration. FAO Irrigation and Drainage Paper 56, Tablas 11 (duración de etapas) y 12 (Kc). https://www.fao.org/4/x0490e/x0490e00.htm — Kc: https://www.fao.org/4/x0490e/x0490e0b.htm",
+        "nota": "Kc de 'Maize, Sweet' (Tabla 12). Kc end 1.05 si se cosecha tierno para consumo. Si se deja secar, usar el Kc end del maíz grano."
+      },
+      "economia": {
+        "rendimiento_t_ha": 15.503,
+        "rendimiento_kg_ha": 15503.4,
+        "precio_chacra_soles_kg": 2.072,
+        "produccion_regional_t": 29627.0,
+        "anio": 2023,
+        "region": "Arequipa",
+        "fuente": "MIDAGRI SIEA, Anuario Producción Agrícola 2023 (Cuadros 3, 4 y 5). Descarga: https://cdn.www.gob.pe/uploads/document/file/9547451/2730325-cuadros-en-excel-del-anuario-produccion-agricola-2023.xlsx. Página: https://www.gob.pe/institucion/midagri/informes-publicaciones/2730325-compendio-anual-de-produccion-agricola",
+        "nota": "Promedio departamental de Arequipa, no margen neto ni precio de una parcela piloto.",
+        "ingreso_bruto_referencial_S_ha": 32123.0,
+        "nota_ingreso": "Ingreso bruto referencial = rendimiento_kg_ha × precio_chacra_soles_kg (promedios departamentales SIEA 2023). No es un margen: no descuenta costos.",
+        "ciclo": {
+          "tipo": "anual",
+          "dias_ciclo_tabla11": 105,
+          "meses_ciclo": 3.45,
+          "base_comparacion_meses": 3.45,
+          "nota": "meses_ciclo = días de la fila Tabla 11 / 30.437. Es una duración indicativa, no el calendario de Arequipa."
+        },
+        "ingreso_bruto_referencial_S_ha_mes": 9311.0,
+        "nota_normalizacion_mensual": "ingreso_bruto_referencial_S_ha_mes = ingreso bruto / base_comparacion_meses (12 en perennes; duración de ciclo en anuales). Sirve para comparar cultivos de distinta duración; no equivale a un flujo de caja real.",
+        "costo_produccion_S_ha": null,
+        "margen_referencial_S_ha": null,
+        "costo_nota": "No se encontró un costo de producción oficial MIDAGRI/INIA/Agro Rural específico de Arequipa para este cultivo. La ESCO 2024-2025 cubre en Arequipa solo alfalfa; hay costos de papa blanca (Huánuco, Ayacucho) y maíz amiláceo (Cusco, Apurímac) que NO se transfieren a Arequipa. Fuente consultada: MIDAGRI, Dirección de Estudios Económicos (2026). Análisis económico de los costos de producción referenciales de principales cultivos en el Perú. Encuesta de Costos de Producción (ESCO) 2024-2025, Proyecto PIADER. Cuadro N.° 1 y Cuadro N.° 4. https://cdn.www.gob.pe/uploads/document/file/10646051/7710817-costos-de-produccion-de-principales-cultivos.pdf"
+      }
+    },
+    {
+      "id": "haba",
+      "nombre": "Haba (grano verde)",
+      "nombre_cientifico": "Vicia faba",
+      "familia": "Fabaceae",
+      "fija_nitrogeno": true,
+      "salinidad": {
+        "ece_umbral_inicio_perdida": 1.5,
+        "pendiente_pct_por_dSm": 9.4,
+        "ece_rendimiento_50": 6.82,
+        "ece_rendimiento_0": 12.14,
+        "modelo": "Maas-Hoffman: Y(%) = 100 - b*(ECe - a), para ECe > a; Y=100 si ECe <= a; recortar a 0-100",
+        "calificacion": "MS",
+        "cultivo_en_tabla": "Broadbean (Vicia faba)",
+        "fuente": "Ayers, R.S. y Westcot, D.W. (1985). Water quality for agriculture. FAO Irrigation and Drainage Paper 29 Rev.1, Tabla 4 (adaptada de Maas y Hoffman 1977 y Maas 1984). https://www.fao.org/4/t0234e/t0234e03.htm",
+        "nota": "Tabla 4, broadbean (Vicia faba), umbral 1.5 dS/m (100% de rendimiento). Pendiente 9.4 %/dS/m calculada con la propia Tabla 4: 50/(6.8-1.5). FAO-61 reporta 1.6 dS/m y 9.6 %/dS/m (Ayars y Eberhard 1960); se priorizó FAO-29 como pidió el plan.",
+        "aviso_motor": "ece_umbral_inicio_perdida es el valor 'a' (ECe al 100% de rendimiento), no una tolerancia máxima. El motor debe puntuar por rendimiento relativo Y = 100 - b*(ECe - a) recortado a [0, 100], y descartar solo si Y queda por debajo de un mínimo configurable (por defecto 50%). Nunca descartar con la regla ECe > umbral."
+      },
+      "kc": {
+        "kc_ini": 0.5,
+        "kc_mid": 1.15,
+        "kc_end": 1.1,
+        "duracion_etapas_dias": {
+          "ini": 15,
+          "dev": 25,
+          "mid": 35,
+          "late": 15,
+          "total": 90,
+          "region_tabla11": "Faba bean / broad bean, ciclo corto tipo grano verde (Tabla 11; hay ciclos secos más largos)"
+        },
+        "fuente": "Allen, R.G., Pereira, L.S., Raes, D. y Smith, M. (1998). Crop evapotranspiration. FAO Irrigation and Drainage Paper 56, Tablas 11 (duración de etapas) y 12 (Kc). https://www.fao.org/4/x0490e/x0490e00.htm — Kc: https://www.fao.org/4/x0490e/x0490e0b.htm",
+        "nota": "Kc de 'Fababean (broad bean) — Fresh' (Tabla 12). Si se cosecha seca, Kc end = 0.30.",
+        "kc_grano_seco": {
+          "kc_ini": 0.5,
+          "kc_mid": 1.15,
+          "kc_end": 0.3
+        }
+      },
+      "economia": {
+        "rendimiento_t_ha": 7.307,
+        "rendimiento_kg_ha": 7306.9,
+        "precio_chacra_soles_kg": 1.702,
+        "produccion_regional_t": 9820.5,
+        "anio": 2023,
+        "region": "Arequipa",
+        "fuente": "MIDAGRI SIEA, Anuario Producción Agrícola 2023 (Cuadros 3, 4 y 5). Descarga: https://cdn.www.gob.pe/uploads/document/file/9547451/2730325-cuadros-en-excel-del-anuario-produccion-agricola-2023.xlsx. Página: https://www.gob.pe/institucion/midagri/informes-publicaciones/2730325-compendio-anual-de-produccion-agricola",
+        "nota": "Promedio departamental de Arequipa, no margen neto ni precio de una parcela piloto.",
+        "alternativa_grano_seco": {
+          "rendimiento_t_ha": 2.184,
+          "precio_chacra_soles_kg": 3.84,
+          "produccion_regional_t": 904.0,
+          "nota": "En Arequipa 2023 la haba verde tiene mucha más producción (9821 t) que la seca (904 t)."
+        },
+        "ingreso_bruto_referencial_S_ha": 12436.3,
+        "nota_ingreso": "Ingreso bruto referencial = rendimiento_kg_ha × precio_chacra_soles_kg (promedios departamentales SIEA 2023). No es un margen: no descuenta costos.",
+        "ciclo": {
+          "tipo": "anual",
+          "dias_ciclo_tabla11": 90,
+          "meses_ciclo": 2.96,
+          "base_comparacion_meses": 2.96,
+          "nota": "meses_ciclo = días de la fila Tabla 11 / 30.437. Es una duración indicativa, no el calendario de Arequipa."
+        },
+        "ingreso_bruto_referencial_S_ha_mes": 4201.5,
+        "nota_normalizacion_mensual": "ingreso_bruto_referencial_S_ha_mes = ingreso bruto / base_comparacion_meses (12 en perennes; duración de ciclo en anuales). Sirve para comparar cultivos de distinta duración; no equivale a un flujo de caja real.",
+        "costo_produccion_S_ha": null,
+        "margen_referencial_S_ha": null,
+        "costo_nota": "No se encontró un costo de producción oficial MIDAGRI/INIA/Agro Rural específico de Arequipa para este cultivo. La ESCO 2024-2025 cubre en Arequipa solo alfalfa; hay costos de papa blanca (Huánuco, Ayacucho) y maíz amiláceo (Cusco, Apurímac) que NO se transfieren a Arequipa. Fuente consultada: MIDAGRI, Dirección de Estudios Económicos (2026). Análisis económico de los costos de producción referenciales de principales cultivos en el Perú. Encuesta de Costos de Producción (ESCO) 2024-2025, Proyecto PIADER. Cuadro N.° 1 y Cuadro N.° 4. https://cdn.www.gob.pe/uploads/document/file/10646051/7710817-costos-de-produccion-de-principales-cultivos.pdf"
+      }
+    },
+    {
+      "id": "arveja",
+      "nombre": "Arveja (grano verde)",
+      "nombre_cientifico": "Pisum sativum",
+      "familia": "Fabaceae",
+      "fija_nitrogeno": true,
+      "salinidad": {
+        "ece_umbral_inicio_perdida": 3.4,
+        "pendiente_pct_por_dSm": 10.6,
+        "ece_rendimiento_50": 8.12,
+        "ece_rendimiento_0": 12.83,
+        "modelo": "Maas-Hoffman: Y(%) = 100 - b*(ECe - a), para ECe > a; Y=100 si ECe <= a; recortar a 0-100",
+        "calificacion": "MS",
+        "cultivo_en_tabla": "Pea (Pisum sativum L.), seed FW",
+        "fuente": "Maas, E.V. y Grattan, S.R., en FAO Irrigation and Drainage Paper 61, Anexo 1, Tabla A1.1 (umbrales y pendientes Maas-Hoffman actualizados). https://www.fao.org/4/y4263e/y4263e0e.htm Fuente primaria: Cerda et al., 1982.",
+        "nota": "NO figura en la Tabla 4 de FAO-29. Se usan umbral 3.4 dS/m y pendiente 10.6 %/dS/m del Anexo 1 de FAO-61 (semilla fresca).",
+        "aviso_motor": "ece_umbral_inicio_perdida es el valor 'a' (ECe al 100% de rendimiento), no una tolerancia máxima. El motor debe puntuar por rendimiento relativo Y = 100 - b*(ECe - a) recortado a [0, 100], y descartar solo si Y queda por debajo de un mínimo configurable (por defecto 50%). Nunca descartar con la regla ECe > umbral."
+      },
+      "kc": {
+        "kc_ini": 0.5,
+        "kc_mid": 1.15,
+        "kc_end": 1.1,
+        "duracion_etapas_dias": {
+          "ini": 15,
+          "dev": 25,
+          "mid": 35,
+          "late": 15,
+          "total": 90,
+          "region_tabla11": "Peas / legumes, ciclo de grano verde (indicativo Tabla 11)"
+        },
+        "fuente": "Allen, R.G., Pereira, L.S., Raes, D. y Smith, M. (1998). Crop evapotranspiration. FAO Irrigation and Drainage Paper 56, Tablas 11 (duración de etapas) y 12 (Kc). https://www.fao.org/4/x0490e/x0490e00.htm — Kc: https://www.fao.org/4/x0490e/x0490e0b.htm",
+        "nota": "Kc del grupo de leguminosas / peas (Tabla 12: mid 1.15, end 1.10 en fresco; end 0.30-0.35 si se cosecha seco). Si se entutora a 1.5-2 m, Kc mid puede subir a 1.20 (nota 2)."
+      },
+      "economia": {
+        "rendimiento_t_ha": 8.925,
+        "rendimiento_kg_ha": 8925.4,
+        "precio_chacra_soles_kg": 2.758,
+        "produccion_regional_t": 16762.0,
+        "anio": 2023,
+        "region": "Arequipa",
+        "fuente": "MIDAGRI SIEA, Anuario Producción Agrícola 2023 (Cuadros 3, 4 y 5). Descarga: https://cdn.www.gob.pe/uploads/document/file/9547451/2730325-cuadros-en-excel-del-anuario-produccion-agricola-2023.xlsx. Página: https://www.gob.pe/institucion/midagri/informes-publicaciones/2730325-compendio-anual-de-produccion-agricola",
+        "nota": "Promedio departamental de Arequipa, no margen neto ni precio de una parcela piloto.",
+        "alternativa_grano_seco": {
+          "rendimiento_t_ha": 1.596,
+          "precio_chacra_soles_kg": 4.286,
+          "produccion_regional_t": 20.8,
+          "nota": "En Arequipa 2023 la arveja seca es marginal (21 t) frente a la verde (16 762 t)."
+        },
+        "ingreso_bruto_referencial_S_ha": 24616.3,
+        "nota_ingreso": "Ingreso bruto referencial = rendimiento_kg_ha × precio_chacra_soles_kg (promedios departamentales SIEA 2023). No es un margen: no descuenta costos.",
+        "ciclo": {
+          "tipo": "anual",
+          "dias_ciclo_tabla11": 90,
+          "meses_ciclo": 2.96,
+          "base_comparacion_meses": 2.96,
+          "nota": "meses_ciclo = días de la fila Tabla 11 / 30.437. Es una duración indicativa, no el calendario de Arequipa."
+        },
+        "ingreso_bruto_referencial_S_ha_mes": 8316.3,
+        "nota_normalizacion_mensual": "ingreso_bruto_referencial_S_ha_mes = ingreso bruto / base_comparacion_meses (12 en perennes; duración de ciclo en anuales). Sirve para comparar cultivos de distinta duración; no equivale a un flujo de caja real.",
+        "costo_produccion_S_ha": null,
+        "margen_referencial_S_ha": null,
+        "costo_nota": "No se encontró un costo de producción oficial MIDAGRI/INIA/Agro Rural específico de Arequipa para este cultivo. La ESCO 2024-2025 cubre en Arequipa solo alfalfa; hay costos de papa blanca (Huánuco, Ayacucho) y maíz amiláceo (Cusco, Apurímac) que NO se transfieren a Arequipa. Fuente consultada: MIDAGRI, Dirección de Estudios Económicos (2026). Análisis económico de los costos de producción referenciales de principales cultivos en el Perú. Encuesta de Costos de Producción (ESCO) 2024-2025, Proyecto PIADER. Cuadro N.° 1 y Cuadro N.° 4. https://cdn.www.gob.pe/uploads/document/file/10646051/7710817-costos-de-produccion-de-principales-cultivos.pdf"
+      }
+    },
+    {
+      "id": "alcachofa",
+      "nombre": "Alcachofa",
+      "nombre_cientifico": "Cynara scolymus",
+      "familia": "Asteraceae",
+      "fija_nitrogeno": false,
+      "salinidad": {
+        "ece_umbral_inicio_perdida": 6.1,
+        "pendiente_pct_por_dSm": 11.5,
+        "ece_rendimiento_50": 10.45,
+        "ece_rendimiento_0": 14.8,
+        "modelo": "Maas-Hoffman: Y(%) = 100 - b*(ECe - a), para ECe > a; Y=100 si ECe <= a; recortar a 0-100",
+        "calificacion": "MT",
+        "cultivo_en_tabla": "Artichoke (Cynara scolymus L.), bud yield",
+        "fuente": "Maas, E.V. y Grattan, S.R., en FAO Irrigation and Drainage Paper 61, Anexo 1, Tabla A1.1 (umbrales y pendientes Maas-Hoffman actualizados). https://www.fao.org/4/y4263e/y4263e0e.htm Fuente primaria: Francois, L.E. (1995).",
+        "nota": "NO figura en la Tabla 4 de FAO-29 (la 'Artichoke' de la Tabla 5 es Helianthus tuberosus, topinambur, no alcachofa de capítulo). Se usa Cynara scolymus: umbral 6.1 dS/m, pendiente 11.5 %/dS/m (FAO-61, Francois 1995).",
+        "aviso_motor": "ece_umbral_inicio_perdida es el valor 'a' (ECe al 100% de rendimiento), no una tolerancia máxima. El motor debe puntuar por rendimiento relativo Y = 100 - b*(ECe - a) recortado a [0, 100], y descartar solo si Y queda por debajo de un mínimo configurable (por defecto 50%). Nunca descartar con la regla ECe > umbral."
+      },
+      "kc": {
+        "kc_ini": 0.5,
+        "kc_mid": 1.0,
+        "kc_end": 0.95,
+        "duracion_etapas_dias": {
+          "ini": 40,
+          "dev": 40,
+          "mid": 250,
+          "late": 30,
+          "total": 360,
+          "region_tabla11": "Artichoke, April, first year, California",
+          "ciclo": "primer_anio",
+          "alternativa_segundo_anio": {
+            "ini": 20,
+            "dev": 25,
+            "mid": 250,
+            "late": 30,
+            "total": 325,
+            "region_tabla11": "Artichoke, May, second year, California"
+          },
+          "nota": "Valores oficiales de FAO-56 Tabla 11 (California). Son un ciclo casi anual de hortaliza perenne, no un calendario de Arequipa. Ajustar con el manejo local de cortes / INIA."
+        },
+        "fuente": "Allen, R.G., Pereira, L.S., Raes, D. y Smith, M. (1998). Crop evapotranspiration. FAO Irrigation and Drainage Paper 56, Tablas 11 (duración de etapas) y 12 (Kc). https://www.fao.org/4/x0490e/x0490e00.htm — Kc: https://www.fao.org/4/x0490e/x0490e0b.htm",
+        "nota": "Kc de 'Artichokes' en Tabla 12 (0.50 / 1.00 / 0.95)."
+      },
+      "economia": {
+        "rendimiento_t_ha": 16.03,
+        "rendimiento_kg_ha": 16030.3,
+        "precio_chacra_soles_kg": 2.143,
+        "produccion_regional_t": 42304.0,
+        "anio": 2023,
+        "region": "Arequipa",
+        "fuente": "MIDAGRI SIEA, Anuario Producción Agrícola 2023 (Cuadros 3, 4 y 5). Descarga: https://cdn.www.gob.pe/uploads/document/file/9547451/2730325-cuadros-en-excel-del-anuario-produccion-agricola-2023.xlsx. Página: https://www.gob.pe/institucion/midagri/informes-publicaciones/2730325-compendio-anual-de-produccion-agricola",
+        "nota": "Promedio departamental de Arequipa, no margen neto ni precio de una parcela piloto.",
+        "ingreso_bruto_referencial_S_ha": 34352.9,
+        "nota_ingreso": "Ingreso bruto referencial = rendimiento_kg_ha × precio_chacra_soles_kg (promedios departamentales SIEA 2023). No es un margen: no descuenta costos.",
+        "ciclo": {
+          "tipo": "perenne",
+          "dias_ciclo_tabla11_primer_anio": 360,
+          "dias_ciclo_tabla11_segundo_anio": 325,
+          "meses_productivos_por_anio": 12,
+          "base_comparacion_meses": 12,
+          "nota": "Hortaliza perenne. La comparación económica con anuales debe hacerse en base anual (12 meses)."
+        },
+        "ingreso_bruto_referencial_S_ha_mes": 2862.7,
+        "nota_normalizacion_mensual": "ingreso_bruto_referencial_S_ha_mes = ingreso bruto / base_comparacion_meses (12 en perennes; duración de ciclo en anuales). Sirve para comparar cultivos de distinta duración; no equivale a un flujo de caja real.",
+        "costo_produccion_S_ha": null,
+        "margen_referencial_S_ha": null,
+        "costo_nota": "No se encontró un costo de producción oficial MIDAGRI/INIA/Agro Rural específico de Arequipa para este cultivo. La ESCO 2024-2025 cubre en Arequipa solo alfalfa; hay costos de papa blanca (Huánuco, Ayacucho) y maíz amiláceo (Cusco, Apurímac) que NO se transfieren a Arequipa. Fuente consultada: MIDAGRI, Dirección de Estudios Económicos (2026). Análisis económico de los costos de producción referenciales de principales cultivos en el Perú. Encuesta de Costos de Producción (ESCO) 2024-2025, Proyecto PIADER. Cuadro N.° 1 y Cuadro N.° 4. https://cdn.www.gob.pe/uploads/document/file/10646051/7710817-costos-de-produccion-de-principales-cultivos.pdf"
+      }
+    },
+    {
+      "id": "paprika",
+      "nombre": "Páprika",
+      "nombre_cientifico": "Capsicum annuum",
+      "familia": "Solanaceae",
+      "fija_nitrogeno": false,
+      "salinidad": {
+        "ece_umbral_inicio_perdida": 1.5,
+        "pendiente_pct_por_dSm": 14.0,
+        "ece_rendimiento_50": 5.07,
+        "ece_rendimiento_0": 8.64,
+        "modelo": "Maas-Hoffman: Y(%) = 100 - b*(ECe - a), para ECe > a; Y=100 si ECe <= a; recortar a 0-100",
+        "calificacion": "MS",
+        "cultivo_en_tabla": "Pepper (Capsicum annuum)",
+        "fuente": "Ayers, R.S. y Westcot, D.W. (1985). Water quality for agriculture. FAO Irrigation and Drainage Paper 29 Rev.1, Tabla 4 (adaptada de Maas y Hoffman 1977 y Maas 1984). https://www.fao.org/4/t0234e/t0234e03.htm",
+        "nota": "Se usa la fila Pepper (Capsicum annuum) de la Tabla 4. La páprika es la misma especie (pimiento para seco/pimentón); no hay una fila específica 'páprika'.",
+        "aviso_motor": "ece_umbral_inicio_perdida es el valor 'a' (ECe al 100% de rendimiento), no una tolerancia máxima. El motor debe puntuar por rendimiento relativo Y = 100 - b*(ECe - a) recortado a [0, 100], y descartar solo si Y queda por debajo de un mínimo configurable (por defecto 50%). Nunca descartar con la regla ECe > umbral."
+      },
+      "kc": {
+        "kc_ini": 0.6,
+        "kc_mid": 1.05,
+        "kc_end": 0.9,
+        "duracion_etapas_dias": {
+          "ini": 30,
+          "dev": 40,
+          "mid": 110,
+          "late": 30,
+          "total": 210,
+          "region_tabla11": "Sweet peppers (bell), October, arid region (FAO-56 Tabla 11; no hay fila 'páprika')",
+          "alternativa_mediterraneo": {
+            "ini": 30,
+            "dev": 35,
+            "mid": 40,
+            "late": 20,
+            "total": 125,
+            "region_tabla11": "Sweet peppers (bell), April-June, Europe / Mediterranean"
+          },
+          "nota": "Se usa la fila de clima árido por analogía con los valles irrigados de Arequipa. El ciclo corto mediterráneo queda como alternativa."
+        },
+        "fuente": "Allen, R.G., Pereira, L.S., Raes, D. y Smith, M. (1998). Crop evapotranspiration. FAO Irrigation and Drainage Paper 56, Tablas 11 (duración de etapas) y 12 (Kc). https://www.fao.org/4/x0490e/x0490e00.htm — Kc: https://www.fao.org/4/x0490e/x0490e0b.htm",
+        "nota": "Kc de 'Sweet Peppers (bell)' en Tabla 12 (mid 1.05, end 0.90). Si se entutora, Kc mid puede subir a 1.15 (nota 2)."
+      },
+      "economia": {
+        "rendimiento_t_ha": 6.509,
+        "rendimiento_kg_ha": 6509.1,
+        "precio_chacra_soles_kg": 8.127,
+        "produccion_regional_t": 7433.3,
+        "anio": 2023,
+        "region": "Arequipa",
+        "fuente": "MIDAGRI SIEA, Anuario Producción Agrícola 2023 (Cuadros 3, 4 y 5). Descarga: https://cdn.www.gob.pe/uploads/document/file/9547451/2730325-cuadros-en-excel-del-anuario-produccion-agricola-2023.xlsx. Página: https://www.gob.pe/institucion/midagri/informes-publicaciones/2730325-compendio-anual-de-produccion-agricola",
+        "nota": "Promedio departamental de Arequipa, no margen neto ni precio de una parcela piloto.",
+        "ingreso_bruto_referencial_S_ha": 52899.5,
+        "nota_ingreso": "Ingreso bruto referencial = rendimiento_kg_ha × precio_chacra_soles_kg (promedios departamentales SIEA 2023). No es un margen: no descuenta costos.",
+        "ciclo": {
+          "tipo": "anual",
+          "dias_ciclo_tabla11": 210,
+          "meses_ciclo": 6.9,
+          "base_comparacion_meses": 6.9,
+          "nota": "meses_ciclo = días de la fila Tabla 11 / 30.437. Es una duración indicativa, no el calendario de Arequipa."
+        },
+        "ingreso_bruto_referencial_S_ha_mes": 7666.6,
+        "nota_normalizacion_mensual": "ingreso_bruto_referencial_S_ha_mes = ingreso bruto / base_comparacion_meses (12 en perennes; duración de ciclo en anuales). Sirve para comparar cultivos de distinta duración; no equivale a un flujo de caja real.",
+        "costo_produccion_S_ha": null,
+        "margen_referencial_S_ha": null,
+        "costo_nota": "No se encontró un costo de producción oficial MIDAGRI/INIA/Agro Rural específico de Arequipa para este cultivo. La ESCO 2024-2025 cubre en Arequipa solo alfalfa; hay costos de papa blanca (Huánuco, Ayacucho) y maíz amiláceo (Cusco, Apurímac) que NO se transfieren a Arequipa. Fuente consultada: MIDAGRI, Dirección de Estudios Económicos (2026). Análisis económico de los costos de producción referenciales de principales cultivos en el Perú. Encuesta de Costos de Producción (ESCO) 2024-2025, Proyecto PIADER. Cuadro N.° 1 y Cuadro N.° 4. https://cdn.www.gob.pe/uploads/document/file/10646051/7710817-costos-de-produccion-de-principales-cultivos.pdf"
+      }
+    },
+    {
+      "id": "trigo",
+      "nombre": "Trigo",
+      "nombre_cientifico": "Triticum aestivum",
+      "familia": "Poaceae",
+      "fija_nitrogeno": false,
+      "salinidad": {
+        "ece_umbral_inicio_perdida": 6.0,
+        "pendiente_pct_por_dSm": 7.1,
+        "ece_rendimiento_50": 13.04,
+        "ece_rendimiento_0": 20.08,
+        "modelo": "Maas-Hoffman: Y(%) = 100 - b*(ECe - a), para ECe > a; Y=100 si ECe <= a; recortar a 0-100",
+        "calificacion": "MT",
+        "cultivo_en_tabla": "Wheat (Triticum aestivum)",
+        "fuente": "Ayers, R.S. y Westcot, D.W. (1985). Water quality for agriculture. FAO Irrigation and Drainage Paper 29 Rev.1, Tabla 4 (adaptada de Maas y Hoffman 1977 y Maas 1984). https://www.fao.org/4/t0234e/t0234e03.htm",
+        "nota": "Tabla 4, wheat. Pendiente 7.1 %/dS/m. Nota 4: más sensible en germinación (ECe 4-5 dS/m en la capa superior). Nota 6: cultivares semi-enanos pueden ser menos tolerantes.",
+        "aviso_motor": "ece_umbral_inicio_perdida es el valor 'a' (ECe al 100% de rendimiento), no una tolerancia máxima. El motor debe puntuar por rendimiento relativo Y = 100 - b*(ECe - a) recortado a [0, 100], y descartar solo si Y queda por debajo de un mínimo configurable (por defecto 50%). Nunca descartar con la regla ECe > umbral."
+      },
+      "kc": {
+        "kc_ini": 0.3,
+        "kc_mid": 1.15,
+        "kc_end": 0.25,
+        "duracion_etapas_dias": {
+          "ini": 15,
+          "dev": 25,
+          "mid": 50,
+          "late": 30,
+          "total": 120,
+          "region_tabla11": "Barley/Oats/Wheat, November, Central India (misma fila de cereales de invierno/primavera en Tabla 11)"
+        },
+        "fuente": "Allen, R.G., Pereira, L.S., Raes, D. y Smith, M. (1998). Crop evapotranspiration. FAO Irrigation and Drainage Paper 56, Tablas 11 (duración de etapas) y 12 (Kc). https://www.fao.org/4/x0490e/x0490e00.htm — Kc: https://www.fao.org/4/x0490e/x0490e0b.htm",
+        "nota": "Kc de 'Spring Wheat' (Tabla 12). Kc end 0.25-0.40 (el valor alto es para cosecha manual, nota 10)."
+      },
+      "economia": {
+        "rendimiento_t_ha": 6.507,
+        "rendimiento_kg_ha": 6506.6,
+        "precio_chacra_soles_kg": 2.109,
+        "produccion_regional_t": 7001.1,
+        "anio": 2023,
+        "region": "Arequipa",
+        "fuente": "MIDAGRI SIEA, Anuario Producción Agrícola 2023 (Cuadros 3, 4 y 5). Descarga: https://cdn.www.gob.pe/uploads/document/file/9547451/2730325-cuadros-en-excel-del-anuario-produccion-agricola-2023.xlsx. Página: https://www.gob.pe/institucion/midagri/informes-publicaciones/2730325-compendio-anual-de-produccion-agricola",
+        "nota": "Promedio departamental de Arequipa, no margen neto ni precio de una parcela piloto.",
+        "ingreso_bruto_referencial_S_ha": 13722.4,
+        "nota_ingreso": "Ingreso bruto referencial = rendimiento_kg_ha × precio_chacra_soles_kg (promedios departamentales SIEA 2023). No es un margen: no descuenta costos.",
+        "ciclo": {
+          "tipo": "anual",
+          "dias_ciclo_tabla11": 120,
+          "meses_ciclo": 3.94,
+          "base_comparacion_meses": 3.94,
+          "nota": "meses_ciclo = días de la fila Tabla 11 / 30.437. Es una duración indicativa, no el calendario de Arequipa."
+        },
+        "ingreso_bruto_referencial_S_ha_mes": 3482.8,
+        "nota_normalizacion_mensual": "ingreso_bruto_referencial_S_ha_mes = ingreso bruto / base_comparacion_meses (12 en perennes; duración de ciclo en anuales). Sirve para comparar cultivos de distinta duración; no equivale a un flujo de caja real.",
+        "costo_produccion_S_ha": null,
+        "margen_referencial_S_ha": null,
+        "costo_nota": "No se encontró un costo de producción oficial MIDAGRI/INIA/Agro Rural específico de Arequipa para este cultivo. La ESCO 2024-2025 cubre en Arequipa solo alfalfa; hay costos de papa blanca (Huánuco, Ayacucho) y maíz amiláceo (Cusco, Apurímac) que NO se transfieren a Arequipa. Fuente consultada: MIDAGRI, Dirección de Estudios Económicos (2026). Análisis económico de los costos de producción referenciales de principales cultivos en el Perú. Encuesta de Costos de Producción (ESCO) 2024-2025, Proyecto PIADER. Cuadro N.° 1 y Cuadro N.° 4. https://cdn.www.gob.pe/uploads/document/file/10646051/7710817-costos-de-produccion-de-principales-cultivos.pdf"
+      }
+    }
+  ]
+}

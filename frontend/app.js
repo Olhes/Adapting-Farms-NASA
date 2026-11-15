@@ -26,14 +26,16 @@
       majes: 'Majes - El Pedregal',
       chili: 'Valle de Chili',
       camana: 'Valle de Camaná',
-      siguas: 'Santa Rita de Siguas'
+      siguas: 'Santa Rita de Siguas',
+      tambo: 'Valle de Tambo'
     };
 
     const ZONE_MULTIPLIERS = {
       majes: { waterStress: 1.15, soilStress: 1.10 },
       chili: { waterStress: 0.92, soilStress: 0.90 },
       camana: { waterStress: 0.80, soilStress: 1.00 },
-      siguas: { waterStress: 1.10, soilStress: 1.05 }
+      siguas: { waterStress: 1.10, soilStress: 1.05 },
+      tambo: { waterStress: 1.00, soilStress: 1.00 }
     };
 
     // Coordenadas y polígono representativo de cada valle/parcela
@@ -53,6 +55,10 @@
       siguas: {
         coords: [-16.494, -72.094],
         polygon: [[-16.508, -72.118], [-16.508, -72.070], [-16.480, -72.064], [-16.480, -72.124]]
+      },
+      tambo: {
+        coords: [-17.110, -71.770],
+        polygon: [[-17.124, -71.794], [-17.124, -71.746], [-17.096, -71.740], [-17.096, -71.800]]
       }
     };
 
@@ -140,14 +146,14 @@
         zoneLocation: 'Zona - Ubicación',
         currentCrop: 'Cultivo actual',
         mapTitle: 'MAPA DE LA PARCELA',
-        mapSub: 'Polígono auditado con imágenes satelitales Esri',
-        mapOk: '🟢 Viable', mapWarn: '🟡 Precaución', mapBad: '🔴 No recomendada',
-        mapHint: 'Toca el mapa para ubicar tu parcela',
+        mapSub: 'Cuadros de 5,4 ha del satélite MODIS (NASA). No es el borde exacto de tu parcela.',
+        mapOk: '🟢 Regado', mapWarn: '🟡 Mixto', mapBad: '⚪ Desierto',
+        mapHint: 'Toca tu parcela para ver qué vio el satélite',
         rotationsTitle: 'ROTACIONES RECOMENDADAS',
-        paretoTitle: 'FRENTE DE COMPROMISOS', paretoBadge: 'Óptimos de Pareto',
-        paretoDesc: 'Relación <strong class="text-slate-200">Salud del Suelo vs. Ingreso</strong> (tamaño = ahorro de agua). Haz clic en un punto para inspeccionar.',
+        paretoTitle: '¿QUÉ PIERDO SI CUIDO MÁS EL SUELO?', paretoBadge: 'Compromisos',
+        paretoDesc: 'Cada punto es una rotación: más a la <strong class="text-slate-200">derecha gana más dinero</strong>, más <strong class="text-slate-200">arriba cuida más el suelo</strong>. La línea une las opciones sin desperdicio: pasar de una a otra es cambiar ingreso por suelo. Toca un punto para ver por qué.',
         axisHigh: 'Alto', axisSoil: '↑ Salud del Suelo', axisLow: 'Bajo', axisIncome: 'Mayor Ingreso →',
-        paretoLegendOk: 'No dominada (Óptima)', paretoLegendBad: 'Dominada / Riesgo', paretoAxisNote: 'Eje Y: Suelo | Eje X: Ingreso',
+        paretoLegendOk: 'Sin desperdicio', paretoLegendBad: 'Hay otra mejor en suelo e ingreso', paretoAxisNote: 'Arriba: suelo · Derecha: ingreso',
         whyTitle: '¿Por qué esta rotación?', copyBtn: 'Copiar', copied: '¡Copiado!',
         railWater: 'AHORRAR AGUA', railSoil: 'SALUD SUELO', railIncome: 'INGRESO',
         tabRotations: 'Rotaciones', tabChart: 'Gráfico',
@@ -156,10 +162,10 @@
         seeWhy: 'Ver por qué →',
         soilImpact: 'Impacto en Suelo',
         advTooltip: 'Configuración avanzada (Variables CSV NASA POWER)',
-        modalTitle: 'Parámetros Locales (NASA POWER CSV)',
-        modalDesc: 'Ajusta los datos climáticos de tu parcela para recalcular el ranking.',
+        modalTitle: 'Datos de tu parcela',
+        modalDesc: 'Por ahora el modelo usa la salinidad de tu suelo. El clima viene de NASA POWER para Majes y no se ajusta aquí.',
         modalTemp: 'Temp. Media (T2M)', modalPrec: 'Precipitación (PRECTOT)', modalRh: 'Humedad (RH2M)',
-        modalRad: 'Radiación (SW_DWN)', modalWind: 'Velocidad Viento (WS2M)', modalSal: 'Salinidad Suelo Local (CE dS/m)',
+        modalRad: 'Radiación (SW_DWN)', modalWind: 'Velocidad Viento (WS2M)', modalSal: 'Salinidad de tu suelo (CE, dS/m), si la mediste',
         cancelBtn: 'Cancelar', applyBtn: 'Aplicar datos',
         waTitle: '🌱 *Field Shift Arequipa - Recomendación de Rotación*',
         waZone: '📍 Zona:', waCrop: 'Cultivo actual:', waSeq: '🔄 Secuencia #',
@@ -170,14 +176,14 @@
         zoneLocation: 'Zone - Location',
         currentCrop: 'Current crop',
         mapTitle: 'PARCEL MAP',
-        mapSub: 'Polygon audited with Esri satellite imagery',
-        mapOk: '🟢 Viable', mapWarn: '🟡 Caution', mapBad: '🔴 Not recommended',
-        mapHint: 'Tap the map to place your parcel',
+        mapSub: '5.4 ha squares from the MODIS satellite (NASA). Not the exact edge of your plot.',
+        mapOk: '🟢 Irrigated', mapWarn: '🟡 Mixed', mapBad: '⚪ Desert',
+        mapHint: 'Tap your plot to see what the satellite saw',
         rotationsTitle: 'RECOMMENDED ROTATIONS',
-        paretoTitle: 'TRADE-OFF FRONT', paretoBadge: 'Pareto Optima',
-        paretoDesc: 'Trade-off between <strong class="text-slate-200">Soil Health vs. Income</strong> (size = water savings). Click a point to inspect.',
+        paretoTitle: 'WHAT DO I GIVE UP TO PROTECT THE SOIL?', paretoBadge: 'Trade-offs',
+        paretoDesc: 'Each point is a rotation: further <strong class="text-slate-200">right earns more</strong>, higher <strong class="text-slate-200">protects the soil more</strong>. The line joins the options with no waste: moving along it trades income for soil. Tap a point to see why.',
         axisHigh: 'High', axisSoil: '↑ Soil Health', axisLow: 'Low', axisIncome: 'Higher Income →',
-        paretoLegendOk: 'Non-dominated (Optimal)', paretoLegendBad: 'Dominated / Risk', paretoAxisNote: 'Y axis: Soil | X axis: Income',
+        paretoLegendOk: 'No waste', paretoLegendBad: 'Another option is better on soil and income', paretoAxisNote: 'Up: soil · Right: income',
         whyTitle: 'Why this rotation?', copyBtn: 'Copy', copied: 'Copied!',
         railWater: 'WATER SAVING', railSoil: 'SOIL HEALTH', railIncome: 'INCOME',
         tabRotations: 'Rotations', tabChart: 'Chart',
@@ -186,10 +192,10 @@
         seeWhy: 'Why →',
         soilImpact: 'Soil Impact',
         advTooltip: 'Advanced settings (NASA POWER CSV variables)',
-        modalTitle: 'Local Parameters (NASA POWER CSV)',
-        modalDesc: "Adjust your parcel's climate data to recalculate the ranking.",
+        modalTitle: 'Your plot data',
+        modalDesc: 'For now the model uses your soil salinity. Climate comes from NASA POWER for Majes and is not adjusted here.',
         modalTemp: 'Avg Temp (T2M)', modalPrec: 'Precipitation (PRECTOT)', modalRh: 'Humidity (RH2M)',
-        modalRad: 'Radiation (SW_DWN)', modalWind: 'Wind Speed (WS2M)', modalSal: 'Local Soil Salinity (CE dS/m)',
+        modalRad: 'Radiation (SW_DWN)', modalWind: 'Wind Speed (WS2M)', modalSal: 'Your soil salinity (EC, dS/m), if measured',
         cancelBtn: 'Cancel', applyBtn: 'Apply data',
         waTitle: '🌱 *Field Shift Arequipa - Rotation Recommendation*',
         waZone: '📍 Zone:', waCrop: 'Current crop:', waSeq: '🔄 Sequence #',
@@ -559,9 +565,16 @@
       return 'badge-conf-low';
     }
 
-    function recalculateAll() {
+    function recalculateAll(apiRanked) {
       state.zone = document.getElementById('select-zona').value;
       state.currentCrop = document.getElementById('select-cultivo').value;
+
+      // With the backend connected, never paint the local table first: wait for the model's ranking (api.js).
+      if (!Array.isArray(apiRanked) && window.FieldShiftApi && window.FieldShiftApi.isUp()) {
+        window.FieldShiftApi.refreshRanking();
+        updateParcelMap();
+        return;
+      }
 
       const list = ROTATIONS_DB[state.currentCrop] || ROTATIONS_DB.Papa;
       const zoneFactor = ZONE_MULTIPLIERS[state.zone] || ZONE_MULTIPLIERS.majes;
@@ -591,16 +604,19 @@
         };
       }).sort((a, b) => b.score - a.score);
 
-      state.currentRanked = ranked;
-      if (state.selectedRotationIdx >= ranked.length) {
+      // If the backend already ranked them (see api.js), use that result instead of the local one
+      const useApi = Array.isArray(apiRanked) && apiRanked.length > 0;
+      const finalRanked = useApi ? apiRanked : ranked;
+      state.currentRanked = finalRanked;
+      if (state.selectedRotationIdx >= finalRanked.length) {
         state.selectedRotationIdx = 0;
       }
 
       // Renderizar las 3 principales en la vista de Rotaciones Recomendadas
-      const topThree = ranked.slice(0, 3);
+      const topThree = finalRanked.slice(0, 3);
       const container = document.getElementById('rotations-list');
       container.innerHTML = topThree.map((rot, idx) => `
-        <div onclick="selectRotationForInspection(${idx}, true)" title="Haz clic para ver en el Frente de Compromisos y explicación LLM" class="bg-[#0d1015] border border-slate-700/75 hover:border-slate-400 rounded-2xl px-4 py-3.5 transition cursor-pointer group">
+        <div onclick="selectRotationForInspection(${idx}, false)" title="Haz clic para ver por qué" class="bg-[#0d1015] border border-slate-700/75 hover:border-slate-400 rounded-2xl px-4 py-2.5 transition cursor-pointer group">
           <div class="flex items-center justify-between gap-2 mb-2.5">
             <div class="text-sm sm:text-[15px] font-bold text-white tracking-tight">
               <span class="font-mono-tech text-slate-400 mr-1.5">#${idx + 1}</span>
@@ -611,7 +627,7 @@
             </span>
           </div>
 
-          <div class="flex flex-wrap sm:flex-nowrap items-center justify-between gap-4">
+          <div class="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
             <!-- Barras segmentadas Display P3 -->
             <div class="flex flex-col gap-1.5 text-xs">
               <div class="flex items-center gap-3">
@@ -638,9 +654,11 @@
 
       updateParcelMap();
 
-      if (state.activeView === 'pareto') {
-        renderParetoAndLLM();
-      }
+      // Ask the backend for the same ranking; api.js calls back here with the result
+      if (!useApi && window.FieldShiftApi) window.FieldShiftApi.refreshRanking();
+
+      // The explanation panel is always visible in the dashboard, so keep it in sync in both views
+      renderParetoAndLLM();
     }
 
     // =========================================================================
@@ -653,9 +671,12 @@
       const layer = document.getElementById('pareto-dynamic-layer');
 
       // Mapear coordenadas (0-100) al área interna del SVG: X [65..425], Y [180..32]
+      // Autoscale to the spread of the shown rotations (scores are relative, so the chart uses the full area)
+      const xs = ranked.map(r => r.paretoX), ys = ranked.map(r => r.paretoY);
+      const scale = (v, lo, hi) => (hi - lo < 1 ? 0.5 : 0.08 + 0.84 * (v - lo) / (hi - lo));
       const points = ranked.map((rot, idx) => {
-        const cx = 65 + (rot.paretoX / 100) * 360;
-        const cy = 180 - (rot.paretoY / 100) * 148;
+        const cx = 65 + scale(rot.paretoX, Math.min(...xs), Math.max(...xs)) * 360;
+        const cy = 180 - scale(rot.paretoY, Math.min(...ys), Math.max(...ys)) * 148;
         const r = 10 + rot.adjWater * 1.4; // Tamaño proporcional al ahorro de agua
         return { ...rot, idx, cx, cy, r };
       });

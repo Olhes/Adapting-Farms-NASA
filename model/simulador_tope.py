@@ -21,7 +21,7 @@ num = lambda s: float(s.replace(",", "."))
 
 # --- ASSUMPTIONS (change them; each one must be validated with the soil expert) ---
 AREA_HA = 15_900          # licensed area per the repo report; satellite mask suggests ~21,000 ha
-EFFICIENCY = 0.75         # same as the synthetic model; measured alfalfa implies ~0.49
+EFFICIENCY = 0.5          # calibrated: satellite ET / delivered water = 0.41-0.56 (see calibracion_et.py); measured alfalfa ~0.49
 CONVEYANCE_LOSS = 0.0     # canal losses inside the pampa: UNKNOWN, kept at 0
 CAP_NORMAL_HM3 = 333.8    # mean delivery at Pitay 2013-2025 (recomputed from the repo CSV)
 
@@ -39,6 +39,10 @@ SOWING = {
 
 # Measured applied water (m3/ha per campaign), Autodema 2016 via the Dialnet article.
 # Paprika and vine are NOT in the synthetic dataset: only this number exists for them.
+# Official margin for alfalfa (the only crop with an official Arequipa cost): ESCO Midagri 2024-2025, cost S/ 7,118/ha;
+# income S/ 6,101/ha (ESCO) to S/ 8,929/ha (departmental 2023, green forage) -> margin -1,017 .. +1,811, midpoint used.
+OFFICIAL_MARGIN = {"Alfalfa": (397, "ESCO Midagri 2024-2025 (costo tipico, forraje verde)")}
+
 MEASURED = {"Alfalfa": 28583, "Maíz": 7115, "Paprika": 8544, "Cebolla": 5609, "Vid": 9043, "Ajo": 9217}
 
 # Scenario mixes in % of area. ACTUAL is Autodema 2016; the other two are ILLUSTRATIVE.
@@ -62,7 +66,10 @@ def load_crops():
     for c, R in by.items():
         crops[c] = {"kc": num(R[0]["kc_medio"]), "ciclo": int(num(R[0]["ciclo_dias"])),
                     "ce_umbral": num(R[0]["ce_umbral_dsm"]),
-                    "margen_s_ha": st.mean(num(r["ingreso_neto_s_ha"]) for r in R)}  # synthetic
+                    "margen_s_ha": st.mean(num(r["ingreso_neto_s_ha"]) for r in R)}  # synthetic, except OFFICIAL_MARGIN
+    for c, (value, _) in OFFICIAL_MARGIN.items():
+        if c in crops:
+            crops[c]["margen_s_ha"] = value
     return crops
 
 
@@ -105,7 +112,7 @@ def simulate(mix, crops, et0m, source, cap_hm3, area_ha=AREA_HA, efficiency=EFFI
 def demo():
     crops = load_crops()
     et0m = load_et0_monthly("pm")
-    print("1) EFECTO DE USAR LA ET0 DEL MES DE SIEMBRA (m3/ha por ciclo, Penman-Monteith, eficiencia 75 %)")
+    print("1) EFECTO DE USAR LA ET0 DEL MES DE SIEMBRA (m3/ha por ciclo, Penman-Monteith, eficiencia 50 %)")
     print(f"   {'cultivo':9s} {'siembra':>7s} {'anual':>8s} {'mensual':>8s} {'dif':>6s}  fuente del mes")
     annual = sum(et0m)
     for c in SOWING:

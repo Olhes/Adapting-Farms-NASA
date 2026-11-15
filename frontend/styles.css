@@ -151,6 +151,7 @@
     /* Mapa satelital de la parcela (Leaflet) */
     #parcel-map {
       height: 290px;
+      min-height: 220px;
       border-radius: 0.75rem;
       position: relative;
       z-index: 1; /* mantiene los panes de Leaflet por debajo del modal (z-50) */
@@ -235,3 +236,7 @@
     @keyframes mq3 { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
     @keyframes mq4 { 0% { transform: translateX(-200%); } 100% { transform: translateX(0%); } }
 
+
+@media (min-width: 1024px) {
+  #parcel-map { height: auto; }
+}
