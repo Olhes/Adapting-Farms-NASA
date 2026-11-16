@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>GreenOrbit flyover</title>
+  <style>
+    html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
+    #scene { position: fixed; inset: 0; background: #000; }
+    #hint { position: fixed; left: 50%; bottom: 44px; transform: translateX(-50%); z-index: 5; color: rgba(255,255,255,.7);
+      font: 12px/1.4 system-ui, sans-serif; letter-spacing: .04em; padding: 6px 12px; border-radius: 99px; background: rgba(0,0,0,.45);
+      transition: opacity 1s; pointer-events: none; white-space: nowrap; }
+    #hint.off { opacity: 0; }
+    #err { position: fixed; inset: 0; display: none; place-items: center; color: #cfd8d3; font: 15px system-ui, sans-serif; text-align: center; padding: 2rem; }
+  </style>
+</head>
+<body>
+  <div id="scene"></div>
+  <div id="hint">Space: tour · D: dry year · 1-5: pampa, canal, canyon, volcanoes, orbit</div>
+  <div id="err" role="alert"></div>
+  <script type="module">
+    import GO from './terrain3d.js';
+    const q = new URLSearchParams(location.search);
+    const wantDry = q.get('dry') === '1';
+    const seconds = Math.max(2, parseFloat(q.get('seconds')) || 36);
+    const lang = q.get('lang') === 'en' ? 'en' : 'es';
+    const hint = document.getElementById('hint');
+    if (q.get('hint') === '0') hint.remove();
+    else setTimeout(() => hint.classList.add('off'), 6000);
+    const fail = (m) => { const e = document.getElementById('err'); e.textContent = m; e.style.display = 'grid'; };
+    if (!GO.isSupported()) fail('WebGL2 is not available in this browser.');
+    else GO.mount(document.getElementById('scene'), { mode: 'cinematic', lang, interactive: false, showPixels: true, assetsBase: './terrain-assets/' })
+      .then((h) => {
+        window.flyover = h;
+        let dry = wantDry;
+        h.setDry(dry);
+        const names = ['pampa', 'canal', 'canyon', 'volcanoes', 'orbit'];
+        addEventListener('keydown', (e) => {
+          if (e.code === 'Space') { e.preventDefault(); h.playTour(seconds); }
+          else if (e.key === 'd' || e.key === 'D') { dry = !dry; h.setDry(dry); }
+          else if (/^[1-5]$/.test(e.key)) h.flyTo(names[+e.key - 1], 3);
+        });
+        if (q.get('tour') === '1') h.playTour(seconds).then(() => { document.documentElement.dataset.tourDone = '1'; });
+      })
+      .catch((e) => fail('Could not load the terrain: ' + (e && e.message || e)));
+  </script>
+</body>
+</html>

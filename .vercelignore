@@ -1,0 +1,11 @@
+.git
+.atl
+.ruff_cache
+.venv
+.env
+*.env
+**/__pycache__
+backend/tests
+model/tests
+model/pipeline
+docs

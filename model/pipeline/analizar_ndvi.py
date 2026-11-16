@@ -87,7 +87,7 @@ def main(path):
     print(f"Umbral de 'regado': NDVI >= {IRRIGATED_NDVI} (supuesto). Con {len(years)} años es una comparación rústica.")
 
     out = Path(path).with_name("ndvi_pampa_resumen.csv")
-    with open(out, "w", newline="") as f:
+    with open(out, "w", newline="", encoding="utf-8") as f:
         w = csv.writer(f)
         w.writerow(["anio", "ndvi_medio_regado", "ndvi_pico", "frac_regado", "n_obs"])
         for y in years:

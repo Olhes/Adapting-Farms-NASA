@@ -1,0 +1,11 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "services": {
+    "greenorbit": {
+      "root": ".",
+      "entrypoint": "api.index:app"
+    }
+  },
+  "redirects": [{ "source": "/", "destination": "/app/landing.html", "permanent": false }],
+  "rewrites": [{ "source": "/(.*)", "destination": { "service": "greenorbit" } }]
+}

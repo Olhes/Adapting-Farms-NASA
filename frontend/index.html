@@ -1,510 +1,452 @@
 <!DOCTYPE html>
-<html lang="es" class="dark">
+<html lang="es" class="dark" data-dry="false">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Field Shift | Asesor de Rotación de Cultivos - Arequipa</title>
+  <title>GreenOrbit | Asesor de rotación de cultivos - Arequipa</title>
+  <meta name="description" content="GreenOrbit: qué sembrar después de tu cultivo y si cabe en el agua de riego de Majes, Arequipa. / What to plant after your crop and whether it fits the irrigation water." />
+  <meta name="theme-color" content="#0b1311" />
+  <!-- Tailwind via CDN. Layout utilities are used here; component styling lives in styles.css. -->
   <script src="https://cdn.tailwindcss.com"></script>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
-  <!-- Leaflet CSS & JS (mapa satelital de la parcela) -->
+  <script>
+    // Earth-and-water palette. Re-pointing Tailwind's slate/sky/rose/orange/amber re-themes every utility class at once.
+    tailwind.config = {
+      theme: { extend: {
+        colors: {
+          slate: { 50:'#f3f6f4', 100:'#e6ece8', 200:'#d0dad4', 300:'#b6c4bd', 400:'#9aada5', 500:'#82958d', 600:'#5d6f68', 700:'#3e4e48', 800:'#26332f', 900:'#18231f', 950:'#0e1613' },
+          sky:   { 100:'#d5f3ef', 200:'#aee6df', 300:'#7fd6cc', 400:'#4cc2b6', 500:'#2ca89c', 600:'#1f857c', 900:'#124a46' },
+          rose:  { 100:'#fbe3d9', 200:'#f6c7b6', 300:'#f0a68c', 400:'#e98b69', 500:'#dc6a45', 600:'#bf5232', 900:'#5a2415' },
+          orange:{ 100:'#fbe3d9', 200:'#f6c7b6', 300:'#f0a68c', 400:'#e98b69', 500:'#dc6a45', 600:'#bf5232', 900:'#5a2415' },
+          amber: { 100:'#f7ecd0', 200:'#efdba6', 300:'#e6c473', 400:'#d9a74a', 500:'#c08c2b', 600:'#9a6e1c', 900:'#4a3510' }
+        },
+        fontFamily: { display: ['Fraunces', 'Georgia', 'serif'] }
+      } }
+    };
+  </script>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+  <!-- Leaflet (satellite map of the plot) -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <!-- Font Awesome 4.7 (iconos del fondo animado) -->
-  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 32 32%27%3E%3Ccircle cx=%2716%27 cy=%2716%27 r=%2714%27 fill=%27%2335bfb0%27/%3E%3Cpath d=%27M8 21c0-8 5-12 16-13 0 9-5 14-13 14%27 fill=%27%23111b19%27/%3E%3C/svg%3E" />
   <link rel="stylesheet" href="styles.css" />
 </head>
-<body class="min-h-screen p-3 sm:p-4 lg:h-screen lg:overflow-hidden">
+<body data-aud="farmer" data-stage="pick">
 
-  <!-- FONDO ANIMADO DE ICONOS (se genera por JS) -->
-  <div id="icon-marquee" class="icon-marquee" aria-hidden="true"></div>
+  <!-- Shared SVG defs: hatch pattern for deficit, drop clip for the water-level icons -->
+  <svg width="0" height="0" aria-hidden="true" focusable="false" style="position:absolute">
+    <defs>
+      <pattern id="hatch-deficit" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+        <rect width="6" height="6" fill="#dc6a45" />
+        <line x1="0" y1="0" x2="0" y2="6" stroke="#0e1613" stroke-width="2.2" />
+      </pattern>
+      <clipPath id="clip-drop"><path d="M12 3c3 4.5 6 7.6 6 11a6 6 0 0 1-12 0c0-3.4 3-6.5 6-11z" /></clipPath>
+    </defs>
+  </svg>
 
-  <!-- SELECTOR DE IDIOMA (ES / EN) -->
-  <button id="lang-toggle" onclick="toggleLang()" title="Cambiar idioma / Switch language" class="fixed bottom-4 right-4 sm:bottom-auto sm:top-4 z-[70] px-3.5 py-1.5 rounded-lg bg-p3-surface border border-slate-700 hover:border-slate-400 text-xs font-extrabold tracking-wider text-slate-200 transition cursor-pointer">
-    EN
-  </button>
+  <a class="skip" href="#main" data-i18n="skipLink">Saltar al contenido</a>
 
-  <!-- LIENZO PRINCIPAL SIN HEADER:
-       Izquierda: 2 rectángulos superiores + Rotaciones Recomendadas debajo
-       Derecha: Ranura en forma de C con los 3 sliders curvos -->
-  <main class="relative z-10 w-full flex flex-col gap-3 lg:h-full">
-    <!-- BARRA SUPERIOR: dónde, qué cultivo y para quién -->
-    <header class="flex flex-wrap items-center justify-between gap-3 lg:pr-20">
-      <div class="flex flex-wrap items-stretch gap-3 flex-1">
-        <!-- Rectángulo 1: Zona - Ubicación -->
-        <div class="bg-p3-surface border border-slate-700/80 hover:border-slate-500 rounded-xl px-4 py-3 shadow-lg transition flex items-center justify-between gap-3">
-          <label for="select-zona" data-i18n="zoneLocation" class="text-xs font-bold uppercase tracking-wider text-slate-300 shrink-0">
-            Zona - Ubicación
-          </label>
-          <div class="flex items-center gap-2 w-full max-w-[330px]">
-            <select id="select-zona" onchange="recalculateAll()" class="w-full bg-p3-elevated text-white font-semibold text-sm rounded-lg px-3 py-2 border border-slate-700 focus:outline-none focus:border-slate-400 cursor-pointer">
-              <option value="majes" selected>Majes - El Pedregal</option>
-              <option value="tambo">Valle de Tambo</option>
-            </select>
-            <button type="button" onclick="toggleParcelMap()" title="Especificar mi parcela en el mapa" data-i18n-title="mapBtnTitle" class="w-9 h-9 shrink-0 rounded-lg bg-p3-elevated border border-slate-700 hover:border-slate-400 text-base flex items-center justify-center transition cursor-pointer">
-              🗺️
-            </button>
-          </div>
-        </div>
-
-        <!-- Rectángulo 2: Cultivo actual -->
-        <div class="bg-p3-surface border border-slate-700/80 hover:border-slate-500 rounded-xl px-4 py-3 shadow-lg transition flex items-center justify-between gap-3">
-          <label for="select-cultivo" data-i18n="currentCrop" class="text-xs font-bold uppercase tracking-wider text-slate-300 shrink-0">
-            Cultivo actual
-          </label>
-          <select id="select-cultivo" onchange="recalculateAll()" class="w-full max-w-[260px] bg-p3-elevated text-white font-semibold text-sm rounded-lg px-3 py-2 border border-slate-700 focus:outline-none focus:border-slate-400 cursor-pointer">
-            <option value="Papa" selected>Papa</option>
-            <option value="Maíz">Maíz</option>
-            <option value="Cebolla">Cebolla</option>
-            <option value="Haba">Haba</option>
-            <option value="Alfalfa">Alfalfa</option>
-          </select>
-        </div>
-      </div>
-      <div role="tablist" aria-label="Para quién" class="flex gap-2 min-w-[320px]">
-        <button id="aud-farmer" role="tab" aria-selected="true" onclick="FieldShiftApi.setAudience('farmer')" data-i18n="audFarmer" class="flex-1 px-3 py-2 rounded-lg border text-xs font-bold uppercase tracking-wide whitespace-nowrap transition">Para el agricultor</button>
-        <button id="aud-junta" role="tab" aria-selected="false" onclick="FieldShiftApi.setAudience('junta')" data-i18n="audJunta" class="flex-1 px-3 py-2 rounded-lg border text-xs font-bold uppercase tracking-wide transition">Para la Junta</button>
-      </div>
-    </header>
-
-    <!-- TABLERO: prioridades | resultados | mapa (cada columna se desplaza por dentro si hace falta) -->
-    <div id="dash-grid" class="grid grid-cols-1 lg:grid-cols-[minmax(280px,25%)_minmax(0,1fr)_minmax(340px,28%)] gap-4 lg:flex-1 lg:min-h-0">
-      <div class="hidden lg:grid-cols-[minmax(280px,25%)_minmax(0,1fr)]" aria-hidden="true"></div>
-      <aside aria-label="Prioridades" class="bg-p3-surface/60 border border-slate-700/60 rounded-2xl p-3 lg:min-h-0 lg:overflow-y-auto">
-        <div class="flex flex-col items-center justify-center gap-4 h-full">
-      <p data-i18n-html="prioHelp" class="text-center text-sm text-slate-300 max-w-[360px]">Mueve los tres círculos según lo que te importa: ahorrar agua, cuidar el suelo o ganar más.<span class="block text-[11px] text-slate-400 mt-1">Cuenta la <b class="text-slate-300">proporción</b> entre los tres, no el número: si los tres están iguales (todos altos o todos bajos), pesan lo mismo.</span></p>
-      <div class="w-full max-w-[420px] lg:max-w-none flex items-center justify-center">
-        <svg id="horseshoe-svg" viewBox="0 0 470 500" class="w-full h-auto lg:max-h-[calc(100vh-290px)] horseshoe-shadow select-none touch-none overflow-visible">
-  <defs>
-    <linearGradient id="slot-c-fill" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#f8fafc" />
-      <stop offset="55%" stop-color="#e2e8f0" />
-      <stop offset="100%" stop-color="#cbd5e1" />
-    </linearGradient>
-
-    <filter id="rail-inset" x="-10%" y="-10%" width="120%" height="120%">
-      <feDropShadow dx="0" dy="1" stdDeviation="1.2" flood-color="#000000" flood-opacity="0.55" />
-    </filter>
-
-    <!-- =================================================================
-         1. TRAYECTORIAS CURVAS PARA LOS TEXTOS (radio r=204 dentro del aro)
-         Centro del círculo de la C: cx = 195, cy = 250
-         ================================================================= -->
-    <!-- Arco Superior: Ahorrar Agua (de izquierda a derecha) -->
-    <path id="curve-water" d="M 122 59 A 204 204 0 0 1 356 123" fill="none" />
-    
-    <!-- Arco Derecho: Salud Suelo (de arriba hacia abajo) -->
-    <path id="curve-soil" d="M 380 163 A 204 204 0 0 1 380 337" fill="none" />
-    
-    <!-- Arco Inferior: Ingreso (de izquierda a derecha para que no quede de cabeza) -->
-    <path id="curve-income" d="M 122 441 A 204 204 0 0 0 356 377" fill="none" />
-
-    <!-- Arcos internos para las pestañas "Rotaciones" y "Gráfico" -->
-    <path id="curve-tab-rotations" d="M 130 182 A 93 93 0 0 1 245 191" fill="none" />
-    <path id="curve-tab-pareto" d="M 259 208 A 93 93 0 0 1 252 308" fill="none" />
-  </defs>
-
-  <!-- Cuerpo en forma de C abierta hacia la izquierda -->
-  <path
-    id="horseshoe-body"
-    d="M 67.5 61.0
-       A 228 228 0 1 1 67.5 439.0
-       L 125.7 352.8
-       A 124 124 0 1 0 125.7 147.2
-       Z"
-    fill="url(#slot-c-fill)"
-    stroke="#ffffff"
-    stroke-width="3"
-    stroke-linejoin="round"
-  />
-
-  <!-- =================================================================
-       2. BOTÓN DE CONFIGURACIÓN AVANZADA METIDO ADENTRO DE LA RANURA
-       ================================================================= -->
-  <g onclick="toggleAdvancedModal(true)" class="cursor-pointer group" transform="translate(104, 102) rotate(-32) scale(0.84)">
-    <title data-i18n="advTooltip">Configuración avanzada (Variables CSV NASA POWER)</title>
-    <rect x="-18" y="-18" width="36" height="36" rx="10" fill="#0f172a" stroke="#334155" stroke-width="1.5" class="group-hover:stroke-white transition" />
-    <line x1="-9" y1="-6" x2="9" y2="-6" stroke="#f8fafc" stroke-width="2" stroke-linecap="round" />
-    <circle cx="-3" cy="-6" r="2.5" style="fill: var(--p3-water)" />
-
-    <line x1="-9" y1="0" x2="9" y2="0" stroke="#f8fafc" stroke-width="2" stroke-linecap="round" />
-    <circle cx="4" cy="0" r="2.5" style="fill: var(--p3-soil)" />
-
-    <line x1="-9" y1="6" x2="9" y2="6" stroke="#f8fafc" stroke-width="2" stroke-linecap="round" />
-    <circle cx="-1" cy="6" r="2.5" style="fill: var(--p3-income)" />
-  </g>
-
-  <!-- Botón curvo superior: Rotaciones -->
-  <g id="c-tab-rotations" onclick="switchWorkspaceView('rotations')" class="c-tab-btn">
-    <path
-      id="c-tab-rotations-path"
-      d="M 118 164
-         A 112 112 0 0 1 258 175
-         L 234 205
-         A 74 74 0 0 0 139 197
-         Z"
-      style="fill: var(--p3-soil)"
-      stroke="#ffffff"
-      stroke-width="2"
-      stroke-linejoin="round"
-    />
-    <text fill="#052e16" font-size="11.5" font-weight="800" dy="3">
-      <textPath href="#curve-tab-rotations" startOffset="50%" text-anchor="middle" id="c-tab-rotations-label" data-i18n="tabRotations">
-        Rotaciones
-      </textPath>
-    </text>
-  </g>
-
-  <!-- Botón curvo inferior: Gráfico -->
-  <g id="c-tab-pareto" onclick="switchWorkspaceView('pareto')" class="c-tab-btn">
-    <path
-      id="c-tab-pareto-path"
-      d="M 276 196
-         A 112 112 0 0 1 268 320
-         L 237 297
-         A 74 74 0 0 0 242 218
-         Z"
-      fill="#191f2a"
-      stroke="#475569"
-      stroke-width="2"
-      stroke-linejoin="round"
-    />
-    <text fill="#cbd5e1" font-size="11.5" font-weight="800" dy="3">
-      <textPath href="#curve-tab-pareto" startOffset="50%" text-anchor="middle" id="c-tab-pareto-label" data-i18n="tabChart">
-        Gráfico
-      </textPath>
-    </text>
-  </g>
-
-  <!-- RIEL 1 (Superior): AHORRAR AGUA -->
-  <path id="track-water" fill="none" stroke="#0f172a" stroke-width="13" stroke-linecap="round" filter="url(#rail-inset)" />
-  <path id="fill-water" fill="none" style="stroke: var(--p3-water)" stroke-width="7" stroke-linecap="round" />
-  <text fill="#0f172a" font-size="10.5" font-weight="800" letter-spacing="0.8">
-    <textPath href="#curve-water" startOffset="50%" text-anchor="middle">
-      <tspan id="rail-label-water" data-i18n="railWater">AHORRAR AGUA</tspan> · <tspan id="label-val-water" style="fill: var(--p3-water)" font-family="JetBrains Mono">80%</tspan>
-    </textPath>
-  </text>
-  <g id="handle-water" class="arc-handle">
-    <circle r="18" fill="#cbd5e1" stroke="#0f172a" stroke-width="3" />
-    <circle r="7" style="fill: var(--p3-water)" />
-  </g>
-
-  <!-- RIEL 2 (Derecho / Central): SALUD DEL SUELO -->
-  <path id="track-soil" fill="none" stroke="#0f172a" stroke-width="13" stroke-linecap="round" filter="url(#rail-inset)" />
-  <path id="fill-soil" fill="none" style="stroke: var(--p3-soil)" stroke-width="7" stroke-linecap="round" />
-  <text fill="#0f172a" font-size="10.5" font-weight="800" letter-spacing="0.8">
-    <textPath href="#curve-soil" startOffset="50%" text-anchor="middle">
-      <tspan id="rail-label-soil" data-i18n="railSoil">SALUD SUELO</tspan> · <tspan id="label-val-soil" style="fill: var(--p3-soil)" font-family="JetBrains Mono">65%</tspan>
-    </textPath>
-  </text>
-  <g id="handle-soil" class="arc-handle">
-    <circle r="18" fill="#cbd5e1" stroke="#0f172a" stroke-width="3" />
-    <circle r="7" style="fill: var(--p3-soil)" />
-  </g>
-
-  <!-- RIEL 3 (Inferior): INGRESO -->
-  <path id="track-income" fill="none" stroke="#0f172a" stroke-width="13" stroke-linecap="round" filter="url(#rail-inset)" />
-  <path id="fill-income" fill="none" style="stroke: var(--p3-income)" stroke-width="7" stroke-linecap="round" />
-  <text fill="#0f172a" font-size="10.5" font-weight="800" letter-spacing="0.8">
-    <textPath href="#curve-income" startOffset="50%" text-anchor="middle">
-      <tspan id="rail-label-income" data-i18n="railIncome">INGRESO</tspan> · <tspan id="label-val-income" style="fill: var(--p3-income)" font-family="JetBrains Mono">45%</tspan>
-    </textPath>
-  </text>
-  <g id="handle-income" class="arc-handle">
-    <circle r="18" fill="#cbd5e1" stroke="#0f172a" stroke-width="3" />
-    <circle r="7" style="fill: var(--p3-income)" />
-  </g>
-</svg>
-      </div>
+  <!-- TOP BAR: one slim row on every screen size -->
+  <header id="topbar" class="topbar">
+    <a class="brand" href="#top" aria-label="GreenOrbit">
+      <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="14" fill="#35bfb0"/><path d="M8 21c0-8 5-12 16-13 0 9-5 14-13 14" fill="#111b19"/></svg>
+      <span class="brand-name">GreenOrbit</span>
+    </a>
+    <span class="topbar-spacer"></span>
+    <div role="group" data-i18n-aria="audAria" aria-label="Para quién es la vista" class="seg">
+      <button id="aud-farmer" type="button" aria-pressed="true" onclick="FieldShiftApi.setAudience('farmer')"><span class="short" data-i18n="audFarmerShort">Agricultor</span><span class="long" data-i18n="audFarmer">Soy agricultor</span></button>
+      <button id="aud-junta" type="button" aria-pressed="false" onclick="FieldShiftApi.setAudience('junta')"><span class="short" data-i18n="audBoardShort">Junta</span><span class="long" data-i18n="audJunta">Junta de Usuarios</span></button>
     </div>
-      </aside>
-      <div class="flex flex-col gap-3 lg:min-h-0 lg:overflow-y-auto pr-1">
-          <div id="view-tabs" role="tablist" aria-label="Vista de resultados" class="flex gap-2">
-            <button id="tab-rot" role="tab" onclick="switchWorkspaceView('rotations')" data-i18n="tabRot" class="px-3 py-1.5 rounded-lg border text-xs font-bold uppercase tracking-wide">Rotaciones</button>
-            <button id="tab-par" role="tab" onclick="switchWorkspaceView('pareto')" data-i18n="tabPar" class="px-3 py-1.5 rounded-lg border text-xs font-bold uppercase tracking-wide">¿Qué pierdo si cuido el suelo?</button>
-          </div>
-          <section id="view-rotations" aria-label="Rotaciones Recomendadas" class="  bg-p3-surface border border-slate-700/85 rounded-2xl p-4 sm:p-5 shadow-2xl w-full transition-all">
-        <div class="flex items-center justify-between mb-3.5 pb-2 border-b border-slate-800">
-          <h2 data-i18n="rotationsTitle" class="text-sm sm:text-base font-extrabold uppercase tracking-wider text-slate-100">
-            ROTACIONES RECOMENDADAS
-          </h2>
-          <span class="flex items-center gap-3">
-            <span id="api-status" class="text-[11px] font-mono-tech text-slate-500">API…</span>
-            <span id="active-climate-tag" class="text-[11px] font-mono-tech text-slate-400">
-              NASA POWER · 19.4°C
-            </span>
-          </span>
+    <button id="dry-pill" type="button" role="switch" aria-checked="false" class="dry-toggle" data-dry-switch data-i18n-aria="dryLabel" aria-label="Año seco">
+      <svg class="dropsvg" viewBox="0 0 24 24" aria-hidden="true"><g clip-path="url(#clip-drop)"><rect class="drop-fill" x="0" y="0" width="24" height="24"/></g><path class="drop-outline" d="M12 3c3 4.5 6 7.6 6 11a6 6 0 0 1-12 0c0-3.4 3-6.5 6-11z"/></svg>
+      <span class="dry-text" data-i18n="dryLabel">Año seco</span>
+    </button>
+    <button id="lang-toggle" type="button" onclick="toggleLang()" title="Cambiar idioma / Switch language" aria-label="Cambiar idioma / Switch language" class="icon-btn">EN</button>
+  </header>
+
+  <!-- Model status: waking up / error with retry -->
+  <div id="api-banner" role="status" aria-live="polite" class="hidden"></div>
+
+  <main id="main">
+
+    <!-- =====================================================================
+         FARMER FLOW: crop -> what matters -> the answer
+         ===================================================================== -->
+    <div id="view-farmer">
+
+      <!-- Opening moment: the stakes, and the first action -->
+      <section id="hero" class="hero" aria-labelledby="hero-h">
+        <svg id="hero-scene-svg" class="scene" viewBox="0 0 1440 640" preserveAspectRatio="xMaxYMax slice" aria-hidden="true" focusable="false">
+          <g>
+            <circle class="star" cx="120" cy="70" r="1.6"/><circle class="star" cx="260" cy="130" r="1.2" style="animation-delay:-1s"/>
+            <circle class="star" cx="430" cy="60" r="1.5" style="animation-delay:-2s"/><circle class="star" cx="610" cy="110" r="1.2" style="animation-delay:-3s"/>
+            <circle class="star" cx="760" cy="48" r="1.6" style="animation-delay:-.5s"/><circle class="star" cx="920" cy="96" r="1.2" style="animation-delay:-2.5s"/>
+            <circle class="star" cx="1260" cy="64" r="1.5" style="animation-delay:-1.5s"/><circle class="star" cx="1360" cy="190" r="1.2" style="animation-delay:-3.5s"/>
+          </g>
+          <path class="orbit" d="M-60 190 C 360 20 1080 20 1500 190"/>
+          <g class="sat"><rect x="-6" y="-4" width="12" height="8" rx="2" fill="#e8d9b4"/><rect x="-21" y="-2" width="12" height="4" fill="#35bfb0"/><rect x="9" y="-2" width="12" height="4" fill="#35bfb0"/></g>
+          <circle class="sun" cx="1090" cy="326" r="46"/>
+          <path class="dune-a" d="M0 372 C 200 340 380 352 560 372 S 900 400 1120 366 S 1340 336 1440 352 L1440 640 L0 640 Z"/>
+          <path class="dune-b" d="M0 440 C 240 400 440 432 700 450 S 1060 456 1260 420 S 1400 408 1440 416 L1440 640 L0 640 Z"/>
+          <g>
+            <path class="parcel" d="M960 452 l66 -9 l22 11 l-66 9 z"/><path class="parcel p2" d="M1040 438 l60 -8 l20 10 l-60 8 z"/>
+            <path class="parcel p3" d="M1240 424 l56 -7 l20 10 l-56 8 z"/><path class="parcel p2" d="M1300 440 l60 -8 l22 11 l-60 9 z"/>
+            <path class="parcel" d="M990 486 l78 -11 l26 13 l-78 11 z"/><path class="parcel p3" d="M1250 482 l76 -10 l26 13 l-76 10 z"/>
+            <path class="parcel p2" d="M1030 530 l90 -12 l28 14 l-90 13 z"/><path class="parcel" d="M1290 520 l84 -11 l28 14 l-84 12 z"/>
+          </g>
+          <path class="dune-c" d="M0 540 C 280 508 540 548 820 536 S 1220 510 1440 536 L1440 640 L0 640 Z"/>
+          <path class="canal-bed" d="M1175 392 C 1105 412 1060 428 1090 452 S 1230 486 1190 520 S 1090 570 1175 645"/>
+          <path class="canal-water" d="M1175 392 C 1105 412 1060 428 1090 452 S 1230 486 1190 520 S 1090 570 1175 645"/>
+          <path class="canal-glint" d="M1175 392 C 1105 412 1060 428 1090 452 S 1230 486 1190 520 S 1090 570 1175 645"/>
+        </svg>
+        <!-- Real 3D terrain (SRTM relief + satellite imagery), mounted lazily by app.js; the SVG above is the fallback -->
+        <div id="scene3d" class="scene3d" aria-hidden="true"></div>
+
+        <div class="hero-copy">
+          <h1 id="hero-h" data-i18n="heroTitle">Un desierto que solo da de comer con agua de canal.</h1>
+          <p data-i18n="heroSub">Lo que siembres decide si esa agua alcanza todo el año.</p>
         </div>
 
-        <p data-i18n-html="introRot" class="text-sm text-slate-300 mb-2">¿Qué sembrar después de <b id="intro-crop" class="text-white">tu cultivo</b>? Mueve las tres prioridades del círculo (ahorrar agua, cuidar el suelo, ganar más) y mira qué rotación te conviene.</p>
-        <div class="mb-3 flex flex-wrap items-center gap-2 bg-sky-500/10 border border-sky-500/30 rounded-lg px-3 py-2">
-          <p class="text-xs text-sky-100">💧 <b id="farm-water" data-i18n="farmWaterDefault">Te llegan unos 21.000 m³ por hectárea al año</b> <span data-i18n="farmWaterSrc" class="text-sky-200/70">(entrega de Pitay repartida en la pampa)</span></p>
-          <div class="flex gap-1.5 ml-auto" role="group" aria-label="Agua del año">
-            <button type="button" data-cap="100" class="fit-cap px-2 py-0.5 rounded-md border text-[11px] font-semibold" data-i18n="capNormal">Año normal</button>
-            <button type="button" data-cap="88" class="fit-cap px-2 py-0.5 rounded-md border text-[11px] font-semibold" data-i18n="capDry">Año seco (88 %)</button>
+        <div class="hero-pick">
+          <div class="pick-panel">
+            <div class="pick-head">
+              <div>
+                <h2 id="pick-h" data-i18n="pickTitle">Empieza aquí: ¿qué cultivas hoy?</h2>
+                <p data-i18n="pickSub">Toca tu cultivo. Con eso armamos las rotaciones que siguen.</p>
+              </div>
+              <div id="zone-chips" class="zone-chips" role="group" data-i18n-aria="zoneAria" aria-label="Zona">
+                <button type="button" data-zone="majes" aria-pressed="true">Majes</button>
+                <button type="button" data-zone="tambo" aria-pressed="false">Valle de Tambo</button>
+              </div>
+            </div>
+            <div id="crop-tiles" class="tiles" role="group" aria-labelledby="pick-h">
+              <span class="tile-skel skeleton" aria-hidden="true"></span><span class="tile-skel skeleton" aria-hidden="true"></span><span class="tile-skel skeleton" aria-hidden="true"></span>
+              <span class="tile-skel skeleton" aria-hidden="true"></span><span class="tile-skel skeleton" aria-hidden="true"></span>
+            </div>
           </div>
-        </div>
-        <div class="mb-3">
-          <p data-i18n-html="plannedQ" class="text-xs text-slate-300 mb-1.5">¿Qué piensas sembrar? <span class="text-slate-500">Marca los cultivos que de verdad puedes sembrar; si no marcas ninguno, se consideran todos.</span></p>
-          <div id="planned-crops" class="flex flex-wrap gap-1.5"></div>
-          <p id="planned-note" class="hidden mt-2 text-[12px] text-amber-300"></p>
-        </div>
-        <details class="mb-3 text-[11px] text-slate-400"><summary data-i18n="legendSummary" class="cursor-pointer text-slate-300">Cómo leer los cuadros y la confianza</summary><div class="mt-2 space-y-2"><p data-i18n-html="legendP1" class="text-[11px] text-slate-400 leading-relaxed">Más cuadros llenos = mejor en ese criterio: <span class="text-sky-300">Agua</span> = ahorra más agua, <span class="text-emerald-300">Suelo</span> = cuida más el suelo, <span class="text-orange-300">Ingreso</span> = gana más. <b>Confianza</b> = cuán respaldada está la recomendación por datos y fuentes.</p>
-        <p data-i18n="legendP2" class="text-[11px] text-slate-400 leading-relaxed">Los cuadros comparan cada rotación con las otras posibles; no son una nota absoluta. Casi todos los cultivos le quitan nitrógeno al suelo: solo la haba y la alfalfa lo reponen, pero la alfalfa gasta mucha agua. Por eso una rotación que gana en agua e ingreso suele sacar pocos cuadros en suelo.</p>
-        </div></details>
-        <p id="zone-note" data-i18n="zoneNote" class="hidden text-[11px] text-amber-300 mb-3">Los datos del modelo son de Majes. Para esta zona los resultados son solo una referencia.</p>
-        <!-- Lista de tarjetas de rotación -->
-        <div id="rotations-list" class="grid grid-cols-1 2xl:grid-cols-3 gap-3">
-          <!-- Renderizado dinámico -->
         </div>
       </section>
-          <div id="view-pareto" class="hidden   flex-col gap-4 w-full transition-all">
-        <!-- 1. Gráfico Interactivo Frente de Compromisos -->
-        <section aria-label="Frente de Compromisos" class="bg-p3-surface border border-slate-700/85 rounded-2xl p-4 sm:p-5 shadow-2xl w-full">
-          <div class="flex items-center justify-between gap-2 mb-1">
-            <h2 data-i18n="paretoTitle" class="text-sm sm:text-base font-extrabold uppercase tracking-wider text-indigo-300">¿QUÉ PIERDO SI CUIDO MÁS EL SUELO?</h2>
-            <span data-i18n="paretoBadge" class="px-2.5 py-1 rounded-lg bg-slate-800/90 border border-slate-700 text-[11px] font-semibold text-slate-300">Compromisos</span>
-          </div>
-          <p data-i18n-html="paretoDesc" class="text-xs text-slate-400 mb-3">
-            Cada punto es una rotación: más a la <strong class="text-slate-200">derecha gana más dinero</strong>, más <strong class="text-slate-200">arriba cuida más el suelo</strong>. La línea une las opciones sin desperdicio: pasar de una a otra es cambiar ingreso por suelo. Toca un punto para ver por qué.
-          </p>
 
-          <!-- Canvas SVG del Frente de Pareto -->
-          <div class="bg-[#090c10] border border-slate-800/90 rounded-xl p-3">
-            <svg id="pareto-svg" viewBox="0 0 460 225" class="w-full h-auto select-none overflow-visible">
-              <!-- Etiquetas de ejes -->
-              <text data-i18n="axisHigh" x="16" y="22" fill="#94a3b8" font-size="10" font-weight="600">Alto</text>
-              <text data-i18n="axisSoil" x="52" y="22" fill="#cbd5e1" font-size="10.5" font-weight="700">↑ Salud del Suelo</text>
-              <text data-i18n="axisLow" x="16" y="192" fill="#94a3b8" font-size="10" font-weight="600">Bajo</text>
+      <!-- Steps 2 and 3 appear once a crop is picked -->
+      <section id="bench" class="bench" hidden>
+        <div class="bench-grid">
 
-              <!-- Ejes principales -->
-              <line x1="46" y1="16" x2="46" y2="195" stroke="#334155" stroke-width="1.5" />
-              <line x1="46" y1="195" x2="442" y2="195" stroke="#334155" stroke-width="1.5" />
+          <!-- STEP 2: what matters to you -->
+          <aside id="prio-panel" class="panel prio untouched" aria-labelledby="prio-h">
+            <h2 id="prio-h" class="panel-title"><span class="stepno" aria-hidden="true">2</span><span data-i18n="prioTitle">¿Qué te importa más?</span></h2>
+            <p class="lead" data-i18n="prioLead">Arrastra las tres perillas. El resultado cambia mientras las mueves.</p>
 
-              <!-- Guías internas punteadas -->
-              <line x1="46" y1="105" x2="442" y2="105" stroke="#1e293b" stroke-width="1" stroke-dasharray="4 4" />
-              <line x1="244" y1="16" x2="244" y2="195" stroke="#1e293b" stroke-width="1" stroke-dasharray="4 4" />
-
-              <text data-i18n="axisIncome" x="440" y="214" text-anchor="end" fill="#cbd5e1" font-size="10.5" font-weight="700">Mayor Ingreso →</text>
-
-              <!-- Capa dinámica de curva Pareto y nodos -->
-              <g id="pareto-dynamic-layer"></g>
-            </svg>
-
-            <!-- Leyenda inferior del gráfico -->
-            <div class="mt-2 pt-2.5 border-t border-slate-800/80 flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-400">
-              <div class="flex items-center gap-4">
-                <span class="flex items-center gap-1.5">
-                  <span class="w-2.5 h-2.5 rounded-full inline-block" style="background-color: var(--p3-soil)"></span>
-                  <span data-i18n="paretoLegendOk">Sin desperdicio</span>
-                </span>
-                <span class="flex items-center gap-1.5">
-                  <span class="w-2.5 h-2.5 rounded-full bg-slate-500 inline-block"></span>
-                  <span data-i18n="paretoLegendBad">Hay otra mejor en suelo e ingreso</span>
-                </span>
+            <div class="prio-row" data-k="water">
+              <div class="prio-top">
+                <svg class="prio-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3c3 4.5 6 7.6 6 11a6 6 0 0 1-12 0c0-3.4 3-6.5 6-11z"/></svg>
+                <label for="prio-water" class="prio-name" data-i18n="prioWater">Ahorrar agua</label>
+                <output id="word-water" class="prio-word" for="prio-water"></output>
               </div>
-              <span data-i18n="paretoAxisNote" class="font-mono-tech text-[10px] text-slate-500">Arriba: suelo · Derecha: ingreso</span>
+              <input id="prio-water" aria-describedby="prio-kbd" class="prio-range" type="range" min="0" max="100" step="1" value="80" />
             </div>
-          </div>
-        </section>
+            <div class="prio-row" data-k="soil">
+              <div class="prio-top">
+                <svg class="prio-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 19c0-8 5-13 14-14 0 9-5 14-13 14M5 19c3-4 6-6 9-8"/></svg>
+                <label for="prio-soil" class="prio-name" data-i18n="prioSoil">Cuidar el suelo</label>
+                <output id="word-soil" class="prio-word" for="prio-soil"></output>
+              </div>
+              <input id="prio-soil" aria-describedby="prio-kbd" class="prio-range" type="range" min="0" max="100" step="1" value="65" />
+            </div>
+            <div class="prio-row" data-k="income">
+              <div class="prio-top">
+                <svg class="prio-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 7v10M9.5 9.5c0-1 1-1.6 2.5-1.6s2.5.6 2.5 1.6-1 1.4-2.5 1.8-2.5.8-2.5 1.8 1 1.6 2.5 1.6 2.5-.6 2.5-1.6"/></svg>
+                <label for="prio-income" class="prio-name" data-i18n="prioIncome">Ganar más</label>
+                <output id="word-income" class="prio-word" for="prio-income"></output>
+              </div>
+              <input id="prio-income" aria-describedby="prio-kbd" class="prio-range" type="range" min="0" max="100" step="1" value="45" />
+            </div>
 
-        <!-- 2. Explicación Agronómica (Capa LLM basada en reglas INIA) -->
-        
-      </div>
-          <section id="view-water" aria-label="Agua y tope colectivo" class="hidden   bg-p3-surface border border-slate-700/85 rounded-2xl p-4 sm:p-5 shadow-2xl w-full">
-        <div class="flex items-center justify-between mb-3 pb-2 border-b border-slate-800">
-          <div><h2 data-i18n="waterTitle" class="text-sm sm:text-base font-extrabold uppercase tracking-wider text-slate-100">AGUA Y TOPE COLECTIVO</h2>
-            <p data-i18n="waterSub" class="text-[11px] text-slate-400 mt-0.5">Para la Junta de Usuarios: ¿alcanza el agua con esta mezcla de cultivos?</p></div>
-          <span data-i18n="waterModel" class="text-[11px] font-mono-tech text-slate-500">Modelo GreenOrbit · Majes</span>
+            <div id="prio-ribbon" class="ribbon" aria-hidden="true"></div>
+            <p id="prio-caption" class="ribbon-cap" aria-live="polite"></p>
+            <p class="fine mt-2" data-i18n="prioNote">Cuenta la proporción entre los tres, no el número: si los tres están iguales, pesan lo mismo.</p>
+            <p id="prio-kbd" class="sr-only-live" data-i18n="sliderHelp">Con el teclado: flechas para cambiar un valor, Re Pág y Av Pág de 10 en 10.</p>
+
+            <details id="planned-fold" class="fold">
+              <summary data-i18n="plannedSummary">Solo algunos cultivos (opcional)</summary>
+              <p class="fine mt-2" data-i18n-html="plannedQ">Marca los cultivos que de verdad puedes sembrar; si no marcas ninguno, se consideran todos.</p>
+              <div id="planned-crops" class="chips"></div>
+              <p id="planned-note" class="note hidden mt-3"></p>
+            </details>
+
+            <button type="button" id="plot-btn" onclick="toggleAdvancedModal(true)" class="btn btn-ghost btn-sm mt-4" data-i18n="plotBtn">Afinar con la sal de mi suelo</button>
+          </aside>
+
+          <!-- STEP 3: the answer -->
+          <div id="answer">
+            <div class="answer-head">
+              <h2><span class="stepno" aria-hidden="true">3</span><span data-i18n="answerTitle">Tu mejor jugada</span></h2>
+              <span class="grow"></span>
+              <span id="api-status" class="text-slate-400">…</span>
+              <button type="button" id="crop-chip" class="chip crop-chip" onclick="document.getElementById('hero').scrollIntoView({behavior: reducedMotion() ? 'auto' : 'smooth'})"><span class="mini" id="crop-chip-glyph"></span><span id="crop-chip-name"></span><span class="fine" data-i18n="changeCrop">cambiar</span></button>
+            </div>
+            <p id="zone-note" data-i18n="zoneNote" class="note hidden">Los datos del modelo son de Majes. Para esta zona los resultados son solo una referencia.</p>
+
+            <!-- the recommendation: one path, one verdict -->
+            <article id="rec" class="rec is-loading" data-i18n-aria="recAria" aria-label="Rotación recomendada">
+              <div class="rec-top">
+                <h3 id="rec-h" class="rec-title">…</h3>
+                <span id="rec-conf" class="conf"></span>
+              </div>
+              <ol id="rec-path" class="path"></ol>
+              <div id="rec-verdict"></div>
+              <div id="rec-meters" class="meters"></div>
+              <div class="rec-actions">
+                <button type="button" onclick="copyWhatsAppSummary()" title="Copiar resumen para WhatsApp" data-i18n-title="copyTitle" class="btn btn-ghost btn-sm">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/></svg>
+                  <span id="copy-btn-label" data-i18n="copyBtn">Copiar</span>
+                </button>
+              </div>
+              <details id="why-details" class="nums">
+                <summary data-i18n="whyTitle">¿Por qué esta rotación?</summary>
+                <div class="nums-body">
+                  <p id="llm-seq-title" class="font-display" style="font-weight:600;font-size:1.125rem"></p>
+                  <p id="llm-rationale-text" class="why-text"><span class="skeleton block h-3 w-full mb-1.5"></span><span class="skeleton block h-3 w-5/6"></span></p>
+                  <p id="llm-source" class="sub"></p>
+                </div>
+              </details>
+              <details id="nums-details" class="nums">
+                <summary data-i18n="seeNumbers">Ver los números</summary>
+                <div class="nums-body">
+                  <div id="rec-nums"></div>
+                  <div>
+                    <h4 id="llm-soil-title" data-i18n="soilImpact">Impacto en el suelo</h4>
+                    <p id="llm-soil-detail"></p>
+                  </div>
+                  <div>
+                    <h4 data-i18n="waterBalanceHdr">Balance de agua</h4>
+                    <p id="llm-water-detail"></p>
+                  </div>
+                  <p id="llm-match-badge" class="sub"></p>
+                  <p class="sub" data-i18n-html="legendP1"></p>
+                  <p class="sub" data-i18n="legendP2"></p>
+                </div>
+              </details>
+            </article>
+
+            <!-- the water calendar: supply against demand, month by month -->
+            <section id="cal" class="cal" aria-labelledby="cal-h">
+              <div class="cal-head">
+                <div>
+                  <h3 id="cal-h" class="sec-title" data-i18n="calTitle">¿Alcanza el agua, mes a mes?</h3>
+                  <p class="sec-sub" data-i18n="calSub">Por hectárea. El agua azul es la que llega; la barra dorada, lo que piden las plantas.</p>
+                </div>
+                <button id="dry-big" type="button" role="switch" aria-checked="false" class="dry-toggle dry-big" data-dry-switch aria-describedby="dry-hint">
+                  <svg class="dropsvg" viewBox="0 0 24 24" aria-hidden="true"><g clip-path="url(#clip-drop)"><rect class="drop-fill" x="0" y="0" width="24" height="24"/></g><path class="drop-outline" d="M12 3c3 4.5 6 7.6 6 11a6 6 0 0 1-12 0c0-3.4 3-6.5 6-11z"/></svg>
+                  <span class="dry-text" data-i18n="dryBig">Probar un año seco</span>
+                </button>
+              </div>
+              <p class="headline"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3c3 4.5 6 7.6 6 11a6 6 0 0 1-12 0c0-3.4 3-6.5 6-11z"/></svg><b id="farm-water" data-i18n="farmWaterDefault">Calculando el agua que te llega…</b></p>
+              <span id="dry-badge" class="dry-badge hidden"></span>
+              <span id="dry-hint" class="sr-only-live" data-i18n="dryHint">Simula la menor entrega de agua vista en cada mes</span>
+
+              <div id="cal-chips" class="chips" role="group" data-i18n-aria="calChipsAria" aria-label="Campaña"></div>
+
+              <div id="cal-stage" class="cal-stage" data-dry="false">
+                <span class="surface-tag" data-i18n="supplyLabel">Agua que llega</span>
+                <div id="cal-cols" class="cols" role="img"></div>
+              </div>
+              <div id="fit-legend" class="cal-legend" aria-hidden="false">
+                <span><i class="lg-water"></i><span data-i18n="calLegWater">Agua que llega</span></span>
+                <span><i class="lg-need"></i><span data-i18n="calLegNeed">Lo que piden las plantas</span></span>
+                <span><i class="lg-short"></i><span data-i18n="calLegShort">Falta agua</span></span>
+                <span><i class="lg-range"></i><span data-i18n="calLegRange">Si piden más (estimación alta)</span></span>
+              </div>
+              <div class="cal-verdict" aria-live="polite">
+                <div id="fit-verdict"></div>
+                <p id="cal-line" class="cal-line"></p>
+              </div>
+              <p id="dry-rule-note" class="dry-note hidden"></p>
+
+              <details class="nums" id="cal-nums">
+                <summary data-i18n="seeNumbers">Ver los números</summary>
+                <div class="nums-body">
+                  <p id="water-fit-summary"></p>
+                  <div class="tbl-wrap"><table class="tbl" id="cal-table"></table></div>
+                  <p id="cal-total" class="sub"></p>
+                  <p id="fit-method-note" class="sub"></p>
+                  <p class="sub" data-i18n="yAxisTitle">Eje vertical: m³ por hectárea, por mes</p>
+                </div>
+              </details>
+              <details id="fit-caveats" class="nums hidden"></details>
+            </section>
+
+            <!-- other ways to rotate: compared by fills -->
+            <section id="alts" aria-labelledby="alts-h">
+              <div class="sec-head">
+                <div>
+                  <h3 id="alts-h" class="sec-title" data-i18n="altTitle">Otras formas de rotar</h3>
+                  <p class="sec-sub" data-i18n="altSub">Toca una para ver su calendario de agua.</p>
+                </div>
+                <div id="view-tabs" class="seg-mini" role="group" data-i18n-aria="viewTabsAria" aria-label="Vista de resultados">
+                  <button id="tab-rot" type="button" aria-pressed="true" onclick="switchWorkspaceView('rotations')" data-i18n="tabRotations">Tarjetas</button>
+                  <button id="tab-par" type="button" aria-pressed="false" onclick="switchWorkspaceView('pareto')" data-i18n="tabPar">¿Qué pierdo si cuido el suelo?</button>
+                </div>
+              </div>
+              <div id="view-rotations">
+                <div id="rotations-list" class="alt-grid" aria-live="polite"></div>
+              </div>
+              <div id="view-pareto" hidden>
+                <h4 class="font-display" style="font-weight:600;font-size:1.125rem" data-i18n="paretoTitle">¿Qué pierdo si cuido más el suelo?</h4>
+                <p data-i18n-html="paretoDesc" class="lead"></p>
+                <div class="pareto-box mt-3">
+                  <svg id="pareto-svg" viewBox="0 0 400 280" class="w-full h-auto select-none overflow-visible" role="group" data-i18n-aria="paretoSvgAria" aria-label="Gráfico de rotaciones"></svg>
+                  <div class="mt-2 pt-2.5 border-t border-slate-800/80 flex flex-wrap items-center gap-x-5 gap-y-1.5 text-xs text-slate-300">
+                    <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-full inline-block" style="background-color: var(--c-soil)"></span><span data-i18n="paretoLegendOk">Sin desperdicio</span></span>
+                    <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-full bg-slate-500 inline-block"></span><span data-i18n="paretoLegendBad">Hay otra mejor en suelo e ingreso</span></span>
+                    <span class="flex items-center gap-1.5"><svg width="34" height="16" viewBox="0 0 34 16" aria-hidden="true"><circle cx="6" cy="8" r="4.5" fill="none" stroke="#9aada5" stroke-width="1.5"/><circle cx="23" cy="8" r="7.5" fill="none" stroke="#9aada5" stroke-width="1.5"/></svg><span data-i18n="paretoLegendSize">Tamaño: cuánta agua ahorra (más grande, más ahorra)</span></span>
+                  </div>
+                  <p id="pareto-takeaway" class="mt-2 text-sm text-slate-100 font-medium" aria-live="polite"></p>
+                </div>
+              </div>
+            </section>
+
+            <button type="button" class="btn btn-ghost" id="to-map" onclick="document.getElementById('map-band').scrollIntoView({behavior: reducedMotion() ? 'auto' : 'smooth'})" data-i18n="toMap">Ajustar a mi parcela en el mapa</button>
+          </div>
         </div>
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
-          <label class="flex flex-col gap-1 text-[11px] text-slate-400"><span data-i18n="waterMix">Mezcla de cultivos</span>
-            <select id="water-mix" class="bg-p3-elevated text-white text-sm rounded-lg px-3 py-2 border border-slate-700"></select></label>
-          <label class="flex flex-col gap-1 text-[11px] text-slate-400"><span data-i18n="waterArea">Área regada</span>
-            <select id="water-area" class="bg-p3-elevated text-white text-sm rounded-lg px-3 py-2 border border-slate-700">
-              <option value="15900" data-i18n="optArea1">15.900 ha (licencia)</option><option value="17500" data-i18n="optArea2">17.500 ha (satélite)</option></select></label>
-          <label class="flex flex-col gap-1 text-[11px] text-slate-400"><span data-i18n="waterEff">Qué parte del agua aprovechan las plantas</span>
-            <select id="water-eff" class="bg-p3-elevated text-white text-sm rounded-lg px-3 py-2 border border-slate-700">
-              <option value="0.5" selected data-i18n="optEff1">≈ 50 % (medida con satélite)</option><option value="0.75" data-i18n="optEff2">75 % (supuesto, sin medir)</option></select></label>
-          <label class="flex flex-col gap-1 text-[11px] text-slate-400"><span data-i18n="waterEt0">Cuánta agua piden las plantas</span>
-            <select id="water-et0" class="bg-p3-elevated text-white text-sm rounded-lg px-3 py-2 border border-slate-700">
-              <option value="pm" data-i18n="optEt0Pm">Estimación alta (Penman-Monteith)</option><option value="hargreaves" data-i18n="optEt0Hg">Estimación baja (Hargreaves)</option></select></label>
-        </div>
-        <div class="mb-4">
-          <div class="flex justify-between text-xs text-slate-300 mb-1"><span data-i18n="waterArrives">Agua que llega</span><b id="water-cap-label" data-i18n="capLabelNormal">Agua de un año normal</b></div>
-          <input id="water-cap" type="range" min="60" max="110" step="1" value="100" class="w-full accent-indigo-400" aria-label="Agua disponible en porcentaje de lo normal">
-        </div>
-        <div id="water-result" data-i18n="calculating" class="text-slate-300 text-sm">Calculando…</div>
       </section>
-          <section id="llm-panel" aria-label="Explicación agronómica LLM" class="bg-p3-surface border border-slate-700/85 rounded-2xl p-4 sm:p-5 shadow-2xl w-full">
-          <div class="flex items-center justify-between gap-2 mb-3">
-            <div class="flex items-center gap-2">
-              <span class="w-6 h-6 rounded-lg flex items-center justify-center text-xs font-bold border border-indigo-400/40" style="background-color: var(--p3-llm-bg); color: var(--p3-llm-accent)">
-                ✦
-              </span>
-              <h3 data-i18n="whyTitle" class="text-sm sm:text-[15px] font-extrabold text-indigo-200">
-                ¿Por qué esta rotación?
-              </h3>
-            </div>
-
-            <div class="flex items-center gap-2">
-              <span id="llm-match-badge" class="px-2.5 py-1 rounded-lg border text-xs font-bold badge-conf-high">
-                Opción #1 (88% match)
-              </span>
-              <button onclick="copyWhatsAppSummary()" title="Copiar resumen para WhatsApp" data-i18n-title="copyTitle" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-600 text-xs font-semibold text-slate-200 transition cursor-pointer">
-                <span id="copy-btn-label" data-i18n="copyBtn">Copiar</span>
-              </button>
-            </div>
-          </div>
-
-          <!-- Bloque narrativo principal -->
-          <div class="bg-[#0a0d12] border border-slate-800 rounded-xl p-3.5 mb-3">
-            <div id="llm-seq-title" class="text-xs sm:text-sm font-extrabold text-white mb-1.5">
-              Papa → Haba → Maíz → Alfalfa
-            </div>
-            <p id="llm-rationale-text" class="text-xs text-slate-300 leading-relaxed">
-              La inclusión de Haba (leguminosa) inmediatamente después de la Papa repone el nitrógeno extraído sin fertilización sintética excesiva. Cerrar con Alfalfa mejora la infiltración de agua y reduce la salinidad superficial en suelos áridos.
-            </p>
-          </div>
-
-          <!-- Tarjetas de Impacto en Suelo y Balance Hídrico -->
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs">
-            <div class="rounded-xl p-3 border" style="background-color: color-mix(in srgb, var(--p3-soil) 10%, #0b0f14); border-color: color-mix(in srgb, var(--p3-soil) 35%, transparent)">
-              <div id="llm-soil-header" class="font-bold mb-1 flex items-center gap-1.5" style="color: var(--p3-soil)">
-                <span>🌱</span> Impacto en Suelo (Majes - El Pedregal):
-              </div>
-              <p id="llm-soil-detail" class="text-slate-300 leading-snug">
-                +18% Materia Orgánica proyectada a 4 años; corta ciclo de nematodos de la papa.
-              </p>
-            </div>
-
-            <div class="rounded-xl p-3 border" style="background-color: color-mix(in srgb, var(--p3-water) 10%, #0b0f14); border-color: color-mix(in srgb, var(--p3-water) 35%, transparent)">
-              <div data-i18n-html="waterBalanceHdr" class="font-bold mb-1 flex items-center gap-1.5" style="color: var(--p3-water)">
-                <span>💧</span> Balance Hídrico:
-              </div>
-              <p id="llm-water-detail" class="text-slate-300 leading-snug">
-                Ahorro de ~2,400 m³/ha frente a rotaciones intensivas de hortalizas.
-              </p>
-            </div>
-          </div>
-        
-          <div id="water-fit" class="mt-3 bg-[#0d1015] border border-slate-700/75 rounded-xl p-3">
-            <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
-              <h3 data-i18n-html="fitTitle" class="text-xs font-bold uppercase tracking-wide text-sky-300">¿Cabe en tu agua? <span class="normal-case font-normal text-slate-400">mes a mes, por hectárea</span></h3>
-              <div class="flex gap-1.5" role="group" aria-label="Agua del año">
-                <button type="button" data-cap="100" class="fit-cap px-2 py-0.5 rounded-md border text-[11px] font-semibold" data-i18n="capNormal">Año normal</button>
-                <button type="button" data-cap="88" class="fit-cap px-2 py-0.5 rounded-md border text-[11px] font-semibold" data-i18n="capDry2014">Año seco (88 %, como 2014)</button>
-              </div>
-            </div>
-            <div id="water-fit-charts" class="grid grid-cols-1 sm:grid-cols-3 gap-3"></div>
-            <p id="water-fit-summary" class="mt-2 text-xs text-slate-300 leading-relaxed"></p>
-            <p data-i18n="fitLegend" class="mt-1 text-[10px] text-slate-500">Barras: agua que pide el cultivo (naranja si pide más de lo que llega). Línea: agua que llega a cada hectárea (entrega de Pitay 2013–2025). Una campaña por año.</p>
-          </div>
-        </section>
-      </div>
-      <aside id="map-col" aria-label="Mapa" class="lg:min-h-0">
-        <section id="parcel-map-section" aria-label="Mapa de la parcela" class="bg-p3-surface flex flex-col lg:h-full lg:min-h-0 border border-slate-700/85 rounded-2xl p-4 shadow-2xl w-full">
-        <div class="flex items-center justify-between gap-2 mb-3 pb-2 border-b border-slate-800">
-          <div>
-            <h2 data-i18n="mapTitle" class="text-sm sm:text-base font-extrabold uppercase tracking-wider text-slate-100">
-              MAPA DE LA PARCELA
-            </h2>
-            <p data-i18n="mapSub" class="text-[11px] text-slate-400">Cuadros de 5,4 ha del satélite MODIS (NASA). No es el borde exacto de tu parcela.</p>
-          </div>
-          <span id="parcel-zone-tag" class="text-[11px] font-mono-tech text-slate-400">Majes - El Pedregal</span>
-        </div>
-
-        <div id="parcel-map" class="border border-slate-700 lg:flex-1 lg:min-h-[220px]"></div>
-        <div id="pixel-info" class="mt-3 lg:max-h-[38%] lg:overflow-y-auto pr-1 text-xs text-slate-300 leading-relaxed">Toca un punto de la pampa para ver lo que registró el satélite en ese lugar.</div>
-
-        <div id="map-legend-farmer" class="mt-2 flex items-center justify-between text-[11px] text-slate-400">
-          <span data-i18n="mapOk">🟢 Regado</span>
-          <span data-i18n="mapWarn">🟡 Mixto</span>
-          <span data-i18n="mapBad">⚪ Desierto</span>
-          <span class="text-slate-500" data-i18n="mapHint">Toca tu parcela para ver qué vio el satélite</span>
-        </div>
-        <div id="map-legend-junta" class="hidden mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-slate-400">
-          <span><span class="inline-block w-2.5 h-2.5 rounded-full align-middle mr-1" style="background:#f97316"></span><span data-i18n="vulHigh">Pierde mucho (−10 % o más)</span></span>
-          <span><span class="inline-block w-2.5 h-2.5 rounded-full align-middle mr-1" style="background:#facc15"></span><span data-i18n="vulMid">Pierde algo (−3 a −10 %)</span></span>
-          <span><span class="inline-block w-2.5 h-2.5 rounded-full align-middle mr-1" style="background:#38bdf8"></span><span data-i18n="vulLow">Aguanta</span></span>
-          <span><span class="inline-block w-2.5 h-2.5 rounded-full align-middle mr-1" style="background:#94a3b8"></span><span data-i18n="vulChange">Cambió de uso (no se recupera)</span></span>
-          <span><span class="inline-block w-2.5 h-2.5 rounded-full align-middle mr-1" style="background:#dc2626"></span><span data-i18n="vulShort">Sin riego si falta agua (barra «Agua que llega»)</span></span>
-        </div>
-      </section>
-      </aside>
     </div>
+
+    <!-- =====================================================================
+         BOARD VIEW (Junta de Usuarios): one question, one big answer
+         ===================================================================== -->
+    <div id="view-board" hidden>
+      <section class="board" aria-labelledby="board-h">
+        <p class="board-for" data-i18n="boardFor">Para la Junta de Usuarios</p>
+        <h1 id="board-h" class="board-title" data-i18n="boardTitle">¿Alcanza el agua con esta mezcla de cultivos?</h1>
+
+        <div class="board-grid">
+          <div class="panel" id="board-controls">
+            <h2 class="panel-title"><span class="stepno" aria-hidden="true">1</span><span data-i18n="boardMixQ">Elige la mezcla de cultivos</span></h2>
+            <div id="mix-cards" class="mix-cards" role="group" data-i18n-aria="boardMixQ" aria-label="Mezcla de cultivos"></div>
+
+            <div class="water-ctl">
+              <h2 class="panel-title"><span class="stepno" aria-hidden="true">2</span><span data-i18n="boardWaterQ">¿Cuánta agua llega?</span></h2>
+              <div class="range-lbl"><span data-i18n="waterArrives">Agua que llega</span><b id="water-cap-label" data-i18n="capLabelNormal">Agua de un año normal</b></div>
+              <input id="water-cap" type="range" min="60" max="110" step="1" value="100" data-i18n-aria="capSliderAria" aria-label="Agua disponible en porcentaje de lo normal">
+              <div class="mt-2"><button id="dry-board" type="button" role="switch" aria-checked="false" class="dry-toggle" data-dry-switch>
+                <svg class="dropsvg" viewBox="0 0 24 24" aria-hidden="true"><g clip-path="url(#clip-drop)"><rect class="drop-fill" x="0" y="0" width="24" height="24"/></g><path class="drop-outline" d="M12 3c3 4.5 6 7.6 6 11a6 6 0 0 1-12 0c0-3.4 3-6.5 6-11z"/></svg>
+                <span class="dry-text" data-i18n="dryLabel">Año seco</span>
+              </button></div>
+            </div>
+
+            <details class="fold" id="board-assump">
+              <summary data-i18n="boardAssump">Ajustar supuestos</summary>
+              <p class="q-lbl" data-i18n="waterArea">Área regada</p>
+              <div class="seg2" data-key="area" role="group" data-i18n-aria="waterArea" aria-label="Área regada">
+                <button type="button" data-v="15900" aria-pressed="true" data-i18n="optArea1">15,900 ha (licencia)</button>
+                <button type="button" data-v="17500" aria-pressed="false" data-i18n="optArea2">17,500 ha (satélite)</button>
+              </div>
+              <p class="q-lbl" data-i18n="waterEff">Qué parte del agua aprovechan las plantas</p>
+              <div class="seg2" data-key="eff" role="group" data-i18n-aria="waterEff" aria-label="Qué parte del agua aprovechan las plantas">
+                <button type="button" data-v="0.5" aria-pressed="true" data-i18n="optEff1">≈ 50 % (medida con satélite)</button>
+                <button type="button" data-v="0.75" aria-pressed="false" data-i18n="optEff2">75 % (supuesto, sin medir)</button>
+              </div>
+              <p class="q-lbl" data-i18n="waterEt0">Cuánta agua piden las plantas</p>
+              <div class="seg2" data-key="et0" role="group" data-i18n-aria="waterEt0" aria-label="Cuánta agua piden las plantas">
+                <button type="button" data-v="hargreaves" aria-pressed="true" data-i18n="optEt0Hg">Estimación baja (Hargreaves)</button>
+                <button type="button" data-v="pm" aria-pressed="false" data-i18n="optEt0Pm">Estimación alta (Penman-Monteith)</button>
+              </div>
+            </details>
+          </div>
+
+          <div class="cal" id="water-card" aria-labelledby="board-ans-h">
+            <h2 id="board-ans-h" class="sec-title" data-i18n="boardAnswer">La respuesta</h2>
+            <div id="water-result" data-state="loading" aria-live="polite" class="mt-4">
+              <div class="board-viz">
+                <div id="tank" class="tank" role="img" aria-label="">
+                  <div class="mc-range"></div><div class="mc-water"></div><div class="mc-need"></div><div class="mc-gap"></div>
+                  <span class="tank-tag" data-i18n="supplyLabel">Agua que llega</span>
+                </div>
+                <div class="board-read">
+                  <p id="board-tone" class="tone-big"><span class="skeleton block h-8 w-5/6"></span></p>
+                  <p id="board-use" class="board-use"></p>
+                  <p id="board-high" class="fine"></p>
+                  <p id="board-short" class="callout hidden"></p>
+                  <div id="board-mix"></div>
+                </div>
+              </div>
+              <div class="cal-legend">
+                <span><i class="lg-water"></i><span data-i18n="calLegWater">Agua que llega</span></span>
+                <span><i class="lg-need"></i><span data-i18n="calLegNeedBoard">Lo que piden los cultivos</span></span>
+                <span><i class="lg-short"></i><span data-i18n="calLegShort">Falta agua</span></span>
+                <span><i class="lg-range"></i><span data-i18n="calLegRange">Si piden más (estimación alta)</span></span>
+              </div>
+              <details class="nums" id="board-nums">
+                <summary data-i18n="seeNumbers">Ver los números</summary>
+                <div class="nums-body" id="board-nums-body"></div>
+              </details>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <!-- =====================================================================
+         MAP BAND: shared by both views (the heading follows the audience)
+         ===================================================================== -->
+    <section id="map-band" class="map-band" aria-labelledby="map-h" hidden>
+      <div class="map-card">
+        <div class="map-copy">
+          <h2 id="map-h" data-i18n="mapTitleFarmer">¿Es esta tu tierra? Tócala en el mapa.</h2>
+          <p id="map-sub" data-i18n="mapSubFarmer">Cuadros de 5.4 ha del satélite MODIS (NASA). No es el borde exacto de tu parcela. Las rotaciones se ajustan al punto que toques.</p>
+        </div>
+        <div class="map-wrap">
+          <div id="parcel-map" data-i18n-aria="mapAria" aria-label="Mapa satelital"></div>
+          <div id="map-invite" class="map-invite" aria-hidden="true"><div class="invite-chip"><span class="pin"><i></i></span><span data-i18n="mapInvite">Toca aquí</span></div></div>
+          <p id="map-touch-hint" data-i18n="mapDragHint" class="hidden">Usa dos dedos para mover el mapa</p>
+        </div>
+        <div class="map-read">
+          <div id="pixel-info" aria-live="polite"></div>
+          <div id="map-legend-farmer" class="legend">
+            <span><span class="swatch" style="background:var(--map-irrigated)"></span><span data-i18n="mapOk">Regado</span></span>
+            <span><span class="swatch" style="background:var(--map-mixed)"></span><span data-i18n="mapWarn">Mixto</span></span>
+            <span><span class="swatch" style="background:var(--map-desert)"></span><span data-i18n="mapBad">Desierto o sin riego</span></span>
+            <span id="parcel-zone-tag" class="fine">Majes - El Pedregal</span>
+          </div>
+          <div id="map-legend-junta" class="legend hidden">
+            <span><span class="swatch" style="background:var(--map-vul-high)"></span><span data-i18n="vulHigh">Pierde mucho (−10 % o más)</span></span>
+            <span><span class="swatch" style="background:var(--map-vul-mid)"></span><span data-i18n="vulMid">Pierde algo (−3 a −10 %)</span></span>
+            <span><span class="swatch" style="background:var(--map-vul-low)"></span><span data-i18n="vulLow">Aguanta</span></span>
+            <span><span class="swatch" style="background:var(--map-desert)"></span><span data-i18n="vulChange">Cambió de uso (no se recupera)</span></span>
+            <span><span class="swatch" style="background:var(--map-short)"></span><span data-i18n="vulShort">Sin riego si falta agua (barra «Agua que llega»)</span></span>
+          </div>
+        </div>
+      </div>
+    </section>
+    <div style="height:48px"></div>
   </main>
 
-  <!-- POPOVER / MODAL LIGERO DE CONFIGURACIÓN AVANZADA (Variables CSV NASA POWER) -->
-  <div id="advanced-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/75 backdrop-blur-sm p-4">
-    <div class="bg-p3-surface border border-slate-700 rounded-2xl max-w-lg w-full p-5 shadow-2xl">
-      <div class="flex items-center justify-between border-b border-slate-800 pb-3 mb-4">
+  <!-- DIALOG: plot data (soil salinity) -->
+  <div id="advanced-modal" class="modal">
+    <div role="dialog" aria-modal="true" aria-labelledby="modal-title" aria-describedby="modal-desc" class="modal-card">
+      <div class="flex items-start justify-between gap-3 border-b border-slate-800 pb-3 mb-4">
         <div>
-          <h3 data-i18n="modalTitle" class="text-sm font-bold uppercase tracking-wide text-white">Datos de tu parcela</h3>
-          <p data-i18n="modalDesc" class="text-xs text-slate-400">Por ahora el modelo usa la salinidad de tu suelo. El clima viene de NASA POWER para Majes y no se ajusta aquí.</p>
+          <h3 id="modal-title" data-i18n="modalTitle" class="font-display text-lg font-semibold text-white">Datos de tu parcela</h3>
+          <p id="modal-desc" data-i18n="modalDesc" class="text-sm text-slate-300">Por ahora el modelo usa la salinidad de tu suelo. El clima viene de NASA POWER para Majes y no se ajusta aquí.</p>
         </div>
-        <button onclick="toggleAdvancedModal(false)" class="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 cursor-pointer">
-          ✕
+        <button id="modal-close" type="button" onclick="toggleAdvancedModal(false)" data-i18n-aria="closeAria" aria-label="Cerrar" class="shrink-0 w-10 h-10 flex items-center justify-center rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 cursor-pointer">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
         </button>
       </div>
 
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-        <div class="hidden bg-p3-elevated p-3 rounded-xl border border-slate-800">
-          <div class="flex justify-between mb-1">
-            <span data-i18n="modalTemp" class="font-semibold text-slate-200">Temp. Media (T2M)</span>
-            <span id="val-t2m" class="font-mono-tech font-bold" style="color: var(--p3-soil)">19.4 °C</span>
+      <div class="grid grid-cols-1 gap-3 text-sm">
+        <p data-i18n="modalSalHelp" class="text-xs text-slate-300 leading-relaxed">Con más sal rinden menos los cultivos sensibles (cebolla, papa, haba) y ganan los tolerantes (quinua, zapallo), según la tabla FAO-29. Si no la mediste, deja 2.8: es un valor de referencia, no de tu parcela.</p>
+        <div class="bg-elevated p-3 rounded-xl border border-slate-800">
+          <div class="flex justify-between mb-2">
+            <label for="inp-salinity" data-i18n="modalSal" class="font-semibold text-slate-100">Salinidad de tu suelo (CE, dS/m), si la mediste</label>
+            <span id="val-salinity" class="font-mono-tech font-bold text-amber-300 shrink-0 ml-2">2.8 dS/m</span>
           </div>
-          <input id="inp-t2m" type="range" min="12" max="28" step="0.1" value="19.4" oninput="syncModalLabels()" class="w-full clean-range">
-        </div>
-
-        <div class="hidden bg-p3-elevated p-3 rounded-xl border border-slate-800">
-          <div class="flex justify-between mb-1">
-            <span data-i18n="modalPrec" class="font-semibold text-slate-200">Precipitación (PRECTOT)</span>
-            <span id="val-prec" class="font-mono-tech font-bold" style="color: var(--p3-water)">0.40 mm</span>
-          </div>
-          <input id="inp-prec" type="range" min="0" max="5" step="0.05" value="0.40" oninput="syncModalLabels()" class="w-full clean-range">
-        </div>
-
-        <div class="hidden bg-p3-elevated p-3 rounded-xl border border-slate-800">
-          <div class="flex justify-between mb-1">
-            <span data-i18n="modalRh" class="font-semibold text-slate-200">Humedad (RH2M)</span>
-            <span id="val-rh" class="font-mono-tech font-bold text-cyan-300">74.7 %</span>
-          </div>
-          <input id="inp-rh" type="range" min="35" max="95" step="0.5" value="74.7" oninput="syncModalLabels()" class="w-full clean-range">
-        </div>
-
-        <div class="hidden bg-p3-elevated p-3 rounded-xl border border-slate-800">
-          <div class="flex justify-between mb-1">
-            <span data-i18n="modalRad" class="font-semibold text-slate-200">Radiación (SW_DWN)</span>
-            <span id="val-rad" class="font-mono-tech font-bold" style="color: var(--p3-income)">20.95 MJ</span>
-          </div>
-          <input id="inp-rad" type="range" min="12" max="28" step="0.1" value="20.95" oninput="syncModalLabels()" class="w-full clean-range">
-        </div>
-
-        <div class="hidden bg-p3-elevated p-3 rounded-xl border border-slate-800 sm:col-span-2">
-          <div class="flex justify-between mb-1">
-            <span data-i18n="modalWind" class="font-semibold text-slate-200">Velocidad Viento (WS2M)</span>
-            <span id="val-wind" class="font-mono-tech font-bold text-slate-200">2.14 m/s</span>
-          </div>
-          <input id="inp-wind" type="range" min="0.5" max="6" step="0.1" value="2.14" oninput="syncModalLabels()" class="w-full clean-range">
-        </div>
-
-        <p data-i18n="modalSalHelp" class="sm:col-span-2 text-[11px] text-slate-400 leading-relaxed">Con más sal rinden menos los cultivos sensibles (cebolla, papa, haba) y ganan los tolerantes (quinua, zapallo), según la tabla FAO-29. Si no la mediste, deja 2,8: es un valor de referencia, no de tu parcela.</p>
-        <div class="bg-p3-elevated p-3 rounded-xl border border-slate-800 sm:col-span-2">
-          <div class="flex justify-between mb-1">
-            <span data-i18n="modalSal" class="font-semibold text-slate-200">Salinidad de tu suelo (CE, dS/m), si la mediste</span>
-            <span id="val-salinity" class="font-mono-tech font-bold text-amber-300">2.8 dS/m</span>
-          </div>
-          <input id="inp-salinity" type="range" min="0.5" max="16.0" step="0.1" value="2.8" oninput="syncModalLabels()" class="w-full clean-range">
+          <input id="inp-salinity" type="range" min="0.5" max="16.0" step="0.1" value="2.8" oninput="syncModalLabels()" class="clean-range">
         </div>
       </div>
 
       <div class="mt-4 pt-3 border-t border-slate-800 flex justify-end gap-2">
-        <button onclick="toggleAdvancedModal(false)" data-i18n="cancelBtn" class="px-3.5 py-2 rounded-lg text-xs text-slate-400 hover:text-white cursor-pointer">
-          Cancelar
-        </button>
-        <button onclick="applyAdvancedAndClose()" style="background-color: var(--p3-soil)" data-i18n="applyBtn" class="px-4 py-2 rounded-lg text-xs font-bold text-slate-950 cursor-pointer">
-          Aplicar datos
-        </button>
+        <button type="button" onclick="toggleAdvancedModal(false)" data-i18n="cancelBtn" class="btn btn-ghost btn-sm">Cancelar</button>
+        <button type="button" onclick="applyAdvancedAndClose()" data-i18n="applyBtn" class="btn btn-sm" style="background-color: var(--c-soil); color:#2a1d05">Aplicar datos</button>
       </div>
     </div>
   </div>

@@ -92,7 +92,7 @@ def main(path):
         print("Si MOD16 también muestra poca variación, apoya que el consumo cambia poco entre años secos y normales.")
     print(f"ET media MOD16 en los puntos con dato: {m:.0f} mm/año (solo píxeles con valor; el desierto suele venir sin dato).")
     out = Path(path).with_name("et_pampa_resumen.csv")
-    with open(out, "w", newline="") as f:
+    with open(out, "w", newline="", encoding="utf-8") as f:
         w = csv.writer(f)
         w.writerow(["anio", "et_mod16_mm", "composites", "ssebop_hm3"])
         for y in years:

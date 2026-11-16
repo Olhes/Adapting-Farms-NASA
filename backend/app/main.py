@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from pathlib import Path
 
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from app.core.config import settings
@@ -16,13 +17,17 @@ app = FastAPI(
     description="Backend modular del asesor de rotación de cultivos Field Shift (Arequipa).",
 )
 
+# The app serves its own frontend, so same-origin calls need no CORS. Cross-origin access is limited to the configured
+# origins (FIELD_SHIFT_CORS_ORIGINS), read-only methods plus POST, and never with credentials: there are no cookies.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.cors_origins,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=settings.cors_origin_list,
+    allow_credentials=False,
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["Content-Type"],
 )
+# Added last = outermost: responses are compressed after every other middleware ran. The map layers are 90-110 KB of JSON.
+app.add_middleware(GZipMiddleware, minimum_size=1000)
 
 app.include_router(parcels_router)
 app.include_router(rotations_router)
