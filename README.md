@@ -1,6 +1,9 @@
 # GreenOrbit — rotaciones de cultivo que caben en el agua que llega
 
 Proyecto para **NASA Space Apps Challenge 2026**, reto **Field Shift: Adapting Farms with NASA Data**.
+**Demo en vivo:** <https://rizosfera.onrender.com/app/> · API: <https://rizosfera.onrender.com/docs>
+(servidor gratuito: si nadie lo usó en los últimos minutos, la primera visita tarda cerca de un minuto en cargar)
+
 Zona piloto: pampa de **Majes** (Arequipa, Perú), un desierto que vive del agua del canal de Majes; mapa satelital también para el **Valle de Tambo**.
 
 La pampa recibe unos **334 millones de m³** de agua al año y los satélites indican que plantas y suelo consumen unos **138**. Con la eficiencia real de riego, la mezcla de cultivos actual ya pediría entre el **78 % y el 99 %** del agua disponible: casi no hay margen para un año seco. GreenOrbit ayuda a decidir qué sembrar con esa restricción. Apoya la decisión; no la reemplaza.
@@ -44,7 +47,7 @@ Más detalle en [`model/README.md`](model/README.md).
 
 ## Cómo correrlo
 
-Requiere Python 3.11 o superior.
+La versión publicada está en <https://rizosfera.onrender.com/app/>. Para correrla en tu máquina se requiere Python 3.11 o superior.
 
 ```bash
 python -m venv .venv
