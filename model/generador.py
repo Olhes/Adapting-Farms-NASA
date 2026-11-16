@@ -9,8 +9,10 @@ import csv
 import itertools
 import json
 import statistics as st
+from functools import lru_cache
 from pathlib import Path
 
+import agua_parcela
 import i18n
 import rotacion
 import simulador_tope as sim
@@ -31,7 +33,7 @@ TXT = {
         "adj_et": "tu zona usa {et} mm de agua al año frente a {etz} mm del promedio, así que el agua por hectárea se ajustó ×{f:.2f}",
         "soil": "Balance de nitrógeno de la rotación: {n:+.0f} kg/ha (ajo y cebolla: extracción medida por el INIA; los demás, valores del modelo sintético). "
                 "Rendimiento esperado por salinidad (CE {ece} dS/m): {y:.0f} % (FAO-29).",
-        "water": "Usa {w:,.0f} m³/ha por campaña, {p:+.0f} % frente al promedio de las alternativas (eficiencia de riego {e:.0%}, calibrada).",
+        "water": "Usa {w:,.0f} m³/ha por campaña, {p:+.0f} % frente al promedio de las alternativas (factor de agua {e:.0%}: ET estimada por satélite sobre agua entregada; incluye pérdidas de conducción y aplicación).",
         "win_water": "ahorra agua: usa {m3:,} m³ por hectárea en cada campaña, {pct} % {dir} que el promedio de las otras opciones",
         "less": "menos", "more": "más",
         "give_water": "gasta más agua: {m3:,} m³ por hectárea en cada campaña",
@@ -60,7 +62,7 @@ TXT = {
         "adj_et": "your area uses {et} mm of water a year versus {etz} mm on average, so water per hectare was adjusted ×{f:.2f}",
         "soil": "Nitrogen balance of the rotation: {n:+.0f} kg/ha (garlic and onion: extraction measured by INIA; the rest, values from the synthetic model). "
                 "Expected yield under salinity (EC {ece} dS/m): {y:.0f} % (FAO-29).",
-        "water": "Uses {w:,.0f} m³/ha per campaign, {p:+.0f} % versus the average of the alternatives (irrigation efficiency {e:.0%}, calibrated).",
+        "water": "Uses {w:,.0f} m³/ha per campaign, {p:+.0f} % versus the average of the alternatives (water factor {e:.0%}: ratio of satellite-estimated ET to delivered water; includes conveyance and application losses).",
         "win_water": "saves water: it uses {m3:,} m³ per hectare each campaign, {pct} % {dir} than the average of the other options",
         "less": "less", "more": "more",
         "give_water": "uses more water: {m3:,} m³ per hectare each campaign",
@@ -87,19 +89,26 @@ TXT = {
 }
 
 
+def _read_csv(name):
+    with open(DATA / name, encoding="utf-8") as f:
+        return list(csv.DictReader(f))
+
+
+@lru_cache(maxsize=None)
 def _catalog():
+    """Crop parameters, nitrogen balance and income per crop. Read once and shared: treat the result as read-only."""
     crops = sim.load_crops()
     n_bal = {}
-    for r in csv.DictReader(open(DATA / "dataset_modelo_rotacion_majes - dataset_modelo.csv")):
+    for r in _read_csv("dataset_modelo_rotacion_majes - dataset_modelo.csv"):
         n_bal.setdefault(r["cultivo_candidato"], sim.num(r["balance_n_kg_ha"]))
     n_bal.update(N_BALANCE_OVERRIDE)
     real = {}
+    kpis = _read_csv("kpis_cultivo_majes_tablero.csv")
     for c, key in (("Papa", "PAPA"), ("Cebolla", "CEBOLLA"), ("Ajo", "AJO")):
-        v = [float(r["rendimiento_t_ha"]) * 1000 * float(r["precio_chacra_s_kg"])
-             for r in csv.DictReader(open(DATA / "kpis_cultivo_majes_tablero.csv")) if r["cultivo"] == key]
+        v = [float(r["rendimiento_t_ha"]) * 1000 * float(r["precio_chacra_s_kg"]) for r in kpis if r["cultivo"] == key]
         v.sort()
         real[c] = (v[round(0.25 * (len(v) - 1))], "real Majes, año regular a malo (percentil 25, Midagri 2016-2025)")
-    ref = {x["id"]: x for x in json.loads((DATA / "cultivos_arequipa_greenorbit.json").read_text())["cultivos"]}
+    ref = {x["id"]: x for x in json.loads((DATA / "cultivos_arequipa_greenorbit.json").read_text(encoding="utf-8"))["cultivos"]}
     income = dict(real)
     for c, rid in REFERENCE_ID.items():
         if rid in ref and ref[rid]["economia"].get("ingreso_bruto_referencial_S_ha"):
@@ -120,7 +129,7 @@ def _stars(x):
     return max(1, min(5, round(1 + 4 * x)))
 
 
-def generate(current, w_water=80, w_soil=65, w_income=45, ece=2.8, top=5, site=None, allowed=None, cap_pct=100.0, lang="es"):
+def generate(current, w_water=80, w_soil=65, w_income=45, ece=2.8, top=5, site=None, allowed=None, cap_pct=100.0, lang="es", scenario="normal"):
     """First 3 items: best by weighted score. The rest: alternatives along the income-soil Pareto front.
 
     site (optional, from pixeles.site): the tapped MODIS pixel. (1) If its greenness dropped in dry years, water weighs
@@ -131,6 +140,8 @@ def generate(current, w_water=80, w_soil=65, w_income=45, ece=2.8, top=5, site=N
     current way (the current crop every campaign) is always appended last, for comparison.
     Scores are normalised over all valid rotations, so they compare across these cases.
     lang: language of the display texts ('es' or 'en'); numbers and identifiers do not change.
+    scenario: 'normal' or 'dry' water supply for the fit check, the same supply the calendar uses (agua_parcela.supply_m3_ha);
+    a flat cap_pct other than 100 wins over it. It only changes the fit check, never the scores or the water figures.
     """
     txt = TXT.get(lang, TXT["es"])
     adjust = []
@@ -143,13 +154,10 @@ def generate(current, w_water=80, w_soil=65, w_income=45, ece=2.8, top=5, site=N
         adjust.append(txt["adj_et"].format(et=site['et_mm'], etz=site['et_zona_mm'], f=factor))
     poor_site = bool(site and site["tipo"] != "regado")
     crops, n_bal, income = _catalog()
-    et = {m: sim.load_et0_monthly(m) for m in ("hargreaves", "pm")}
-    water = {}
-    for c in CANDIDATES:
-        if c == "Paprika":
-            water[c] = sim.MEASURED["Paprika"] * factor
-        else:
-            water[c] = factor * st.mean(sim.water_m3_ha(c, crops, et[m], "calculada", sim.EFFICIENCY) for m in et)
+    # one water figure per crop, the same function the monthly calendar uses: central value from the central ET0
+    # method (Hargreaves-Samani), plus the low/high end over the two standard ET0 methods (they are not averaged)
+    ranges = {c: sim.crop_water_range(c) for c in CANDIDATES}
+    water = {c: factor * ranges[c]["central"]["total"] for c in CANDIDATES}
     rows = []
     for seq in itertools.product(CANDIDATES, repeat=3):
         bad, good = rotacion.check(seq, previous=current, lang=lang)
@@ -166,7 +174,7 @@ def generate(current, w_water=80, w_soil=65, w_income=45, ece=2.8, top=5, site=N
         # salinity lowers the yield, so it lowers the income of each crop by its FAO-29 relative yield
         vals = [(income[c][0] if c in income else fill) * _salt_yield(c, ece) for c in r["seq"]]
         r["income"] = st.mean(vals)
-        wl, wh = min(r["water"] for r in ok), max(r["water"] for r in ok)
+    wl, wh = min(r["water"] for r in ok), max(r["water"] for r in ok)
     nl, nh = min(r["n"] for r in ok), max(r["n"] for r in ok)
     ilo, ihi = min(r["income"] for r in ok), max(r["income"] for r in ok)
     tot = (w_water + w_soil + w_income) or 1
@@ -214,16 +222,14 @@ def generate(current, w_water=80, w_soil=65, w_income=45, ece=2.8, top=5, site=N
             seen.add(k)
             best.append(r)
     # water that reaches one hectare in a year vs what each campaign asks (agua_parcela, month by month)
-    import agua_parcela
-    supply = agua_parcela.delivery_m3_ha(cap_pct)
-    et0s = [sim.load_et0_monthly(m) for m in ("hargreaves", "pm")]
-    monthly = {c: agua_parcela.crop_monthly(c, crops, et0s)[0] for c in set(c for r in rows for c in r["seq"]) | {current}}
-    monthly = {c: [v * factor for v in prof] for c, prof in monthly.items()}
+    supply, supply_basis = agua_parcela.supply_m3_ha(cap_pct, scenario)
+    monthly = {c: [v * factor for v in ranges[c]["central"]["monthly"]] for c in CANDIDATES}
 
     def fit(seq):
         over = [c for c in dict.fromkeys(seq) if sum(monthly[c]) > sum(supply)]
         short = max(sum(d > s_ for d, s_ in zip(monthly[c], supply)) for c in seq)
-        return {"llega_m3_ha_anio": round(sum(supply)), "cap_pct": cap_pct, "cabe_en_el_anio": not over,
+        return {"llega_m3_ha_anio": round(sum(supply)), "cap_pct": cap_pct, "scenario": scenario, "supply_basis": supply_basis,
+                "cabe_en_el_anio": not over,
                 "no_caben": over, "max_meses_con_deficit": short,
                 "pide_max_m3_ha": round(max(sum(monthly[c]) for c in seq))}
 
@@ -238,6 +244,8 @@ def generate(current, w_water=80, w_soil=65, w_income=45, ece=2.8, top=5, site=N
         missing = [c for c in r["seq"] if c not in income]
         conf = "BAJA" if (r["bad"] or (poor_site and site["tipo"].startswith("desierto"))) else ("ALTA" if not missing and real_n >= 2 and not poor_site else "MEDIA")
         stars = {"agua": _stars(r["s_water"]), "suelo": _stars(r["s_soil"]), "ingreso": _stars(r["s_inc"])}
+        water_range = {k: round(st.mean(factor * ranges[c][k]["total"] for c in r["seq"])) for k in ("low", "central", "high")}
+        water_range["central_is_low"] = water_range["central"] == water_range["low"]
         facts = {
             "rotacion": [current, *r["seq"]], "estrellas": stars,
             "prioridades": {"agua": w_water, "suelo": w_soil, "ingreso": w_income},
@@ -251,6 +259,10 @@ def generate(current, w_water=80, w_soil=65, w_income=45, ece=2.8, top=5, site=N
             "parcela": site, "ajustes_parcela": adjust,
             "modo": mode, "agrega": added.get(id(r)), "es_forma_actual": is_current,
             "agua_cabe": fit(r["seq"]),
+            # the same campaign water, as a range over the two ET0 methods (central = the one the score uses);
+            # central_is_low tells the UI that central and low are the same number, so it can say "X to Y"
+            "water_range_m3_ha_campaign": water_range,
+            "water_basis": {c: ranges[c]["central"]["basis"] for c in dict.fromkeys(r["seq"])},
         }
         rationale = explain_template(facts, lang)
         out.append({

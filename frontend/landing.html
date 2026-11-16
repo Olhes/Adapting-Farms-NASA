@@ -1,0 +1,466 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>GreenOrbit: qué sembrar para que el agua del canal alcance</title>
+  <meta name="description" content="GreenOrbit propone rotaciones de cultivo para la pampa de Majes (Arequipa) con datos de NASA. Recorre cómo se construyó y prueba el modelo real, con sus límites a la vista.">
+  <meta name="theme-color" content="#07100e">
+  <meta property="og:title" content="GreenOrbit: qué sembrar para que el agua del canal alcance">
+  <meta property="og:description" content="Rotaciones de cultivo para Majes con datos de NASA. La ruta completa de cómo se construyó, con demostraciones en vivo.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght,SOFT@0,9..144,300..800,0..100;1,9..144,300..800,0..100&family=Instrument+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <link rel="stylesheet" href="landing.css">
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" defer></script>
+  <script src="landing.js" defer></script>
+</head>
+<body>
+  <a class="skip" href="#main" data-t="skip">Saltar al contenido</a>
+
+  <header class="top" id="top">
+    <div class="top__in">
+      <a class="brand" href="#inicio" aria-label="GreenOrbit">
+        <svg class="brand__mark" width="28" height="28" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+          <ellipse cx="16" cy="16" rx="14" ry="6.5" transform="rotate(-24 16 16)" stroke="currentColor" stroke-width="1.6" opacity=".55"/>
+          <path d="M16 6c3.6 5 6.6 8.1 6.6 11.6a6.6 6.6 0 0 1-13.2 0C9.4 14.100 12.400 11 16 6z" fill="var(--water)"/>
+        </svg>
+        <span class="brand__name">GreenOrbit</span>
+      </a>
+      <nav class="top__nav" aria-label="Secciones">
+        <a href="#problema" data-t="navProblem">El problema</a>
+        <a href="#route" data-t="navRoute">La ruta</a>
+        <a href="#stop-7" data-t="navHonest">Lo que no sabemos</a>
+        <a href="#stop-8" data-t="navWho">Para quién</a>
+      </nav>
+      <div class="top__actions">
+        <div class="langsw" role="group" aria-label="Idioma / Language">
+          <button type="button" data-lang="es" aria-pressed="true">ES</button>
+          <button type="button" data-lang="en" aria-pressed="false">EN</button>
+        </div>
+        <a class="btn btn--small btn--primary" href="/app/" data-t="openShort">Abrir la app</a>
+      </div>
+    </div>
+    <div class="progress" aria-hidden="true"><i id="progress-fill"></i></div>
+  </header>
+
+  <div class="wake" id="wake" role="status" hidden>
+    <span class="spinner" aria-hidden="true"></span>
+    <p><b data-t="wakeTitle">El servidor se está despertando.</b> <span data-t="wakeBody">El alojamiento gratuito puede tardar cerca de un minuto en la primera visita. Las demostraciones aparecen solas cuando responde.</span></p>
+  </div>
+
+  <main id="main">
+    <!-- ============ HERO ============ -->
+    <section class="hero" id="inicio" aria-labelledby="h-title">
+      <div class="hero__map" id="hero-map">
+        <canvas id="hero-canvas" role="img" aria-label="Mapa de los cuadros regados de la pampa de Majes, vistos por satélite" data-tl="aria-label:heroMapAria"></canvas>
+        <p class="hero__cap" id="hero-cap" aria-live="polite"></p>
+      </div>
+      <div class="wrap hero__grid">
+        <div class="hero__copy">
+          <p class="hero__kicker" data-t="heroKicker">Reto Field Shift, NASA Space Apps Challenge 2026</p>
+          <h1 id="h-title"><span class="l1" data-t="heroH1a">El agua llega por un canal.</span> <span class="l2" data-t="heroH1b">Lo que siembras decide si alcanza.</span></h1>
+          <p class="hero__lead" data-t="heroLead">La pampa de Majes, en Arequipa, es un desierto que solo produce con agua del canal. GreenOrbit propone qué sembrar en las próximas tres campañas para que esa agua alcance, también en un año seco.</p>
+          <div class="hero__cta">
+            <a class="btn btn--primary btn--big" href="/app/" data-t="ctaOpen">Abrir GreenOrbit</a>
+            <a class="btn btn--ghost btn--big" href="#route" data-t="ctaRoute">Seguir la ruta</a>
+          </div>
+        </div>
+      </div>
+      <div class="wrap">
+        <dl class="hero__stats" id="hero-stats">
+          <div class="stat">
+            <dt data-t="stSupply">hm³ de agua entregada al año</dt>
+            <dd class="stat__n" id="st-supply"><span class="skel" aria-hidden="true"></span></dd>
+          </div>
+          <div class="stat">
+            <dt data-t="stDemand">hm³ pide la mezcla de cultivos actual, según el método de ET0</dt>
+            <dd class="stat__n" id="st-demand"><span class="skel" aria-hidden="true"></span></dd>
+          </div>
+          <div class="stat">
+            <dt data-t="stDry">hm³ llegarían en el caso seco del modelo</dt>
+            <dd class="stat__n" id="st-dry"><span class="skel" aria-hidden="true"></span></dd>
+          </div>
+        </dl>
+        <p class="hero__src" data-t="stSrc">Cifras calculadas ahora por el modelo con la mezcla de cultivos de Autodema 2016.</p>
+      </div>
+    </section>
+
+    <!-- ============ THE PROBLEM ============ -->
+    <section class="problem sand" id="problema" aria-labelledby="p-title">
+      <div class="wrap">
+        <header class="sec-head">
+          <h2 id="p-title" data-t="pTitle">El agua tiene tope. Y casi la mitad de la tierra pide la misma planta.</h2>
+          <p class="sec-head__lead" data-t="pLead">Tres hechos, con cifras que el modelo calcula en este momento.</p>
+        </header>
+
+        <div class="problem__grid">
+          <article class="beat">
+            <h3 data-t="pB1">Agua que llega frente a agua que se pide</h3>
+            <p data-t="pB1p">La mezcla de cultivos de hoy pide una cantidad que depende del método con que se estima la evapotranspiración. Se muestran los dos: el bajo y el alto.</p>
+            <div class="demo" id="demo-supply" data-demo>
+              <div class="demo__bar">
+                <span class="live"><i></i><span data-t="liveData">Datos en vivo</span></span>
+                <div class="seg" role="radiogroup" aria-label="Escenario de agua" data-tl="aria-label:scnAria">
+                  <button type="button" role="radio" aria-checked="true" data-scn="normal" data-t="scnNormal">Año normal</button>
+                  <button type="button" role="radio" aria-checked="false" data-scn="dry" data-t="scnDry">Año seco</button>
+                </div>
+              </div>
+              <div class="demo__body" aria-live="polite"></div>
+              <div class="demo__state" role="status"></div>
+            </div>
+          </article>
+
+          <article class="beat">
+            <h3 data-t="pB2">Casi la mitad de la superficie es alfalfa</h3>
+            <p data-t="pB2p">Es forraje para el ganado lechero y su área está atada a la venta de leche, no al agua disponible. Cada cuadro de abajo es el 1 % de la superficie.</p>
+            <div class="demo" id="demo-waffle" data-demo>
+              <div class="demo__bar"><span class="live"><i></i><span data-t="liveData">Datos en vivo</span></span></div>
+              <div class="demo__body"></div>
+              <div class="demo__state" role="status"></div>
+            </div>
+          </article>
+
+          <article class="beat beat--wide">
+            <h3 data-t="pB3">Los años con menos agua ya ocurrieron</h3>
+            <p data-t="pB3p">El satélite y las entregas oficiales muestran tres años con entregas menores. El caso seco del modelo es más duro que cualquiera de ellos: toma la entrega más baja vista en cada mes.</p>
+            <ul class="dryyears" id="dryyears" aria-live="polite"></ul>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ THE ROUTE ============ -->
+    <section class="route" id="route" aria-labelledby="r-title">
+      <div class="wrap">
+        <header class="sec-head sec-head--route">
+          <h2 id="r-title" data-t="rTitle">La ruta: cómo se construyó, parada por parada</h2>
+          <p class="sec-head__lead" data-t="rLead">Ocho paradas, de la pregunta a quién la usa. En varias puedes tocar el trabajo real.</p>
+        </header>
+
+        <nav class="routemap" id="routemap" aria-label="Mapa de la ruta" data-tl="aria-label:routeAria">
+          <svg class="routemap__svg" id="routemap-svg" viewBox="0 0 1200 240" preserveAspectRatio="none" aria-hidden="true">
+            <path id="rm-dry" d="" fill="none"/>
+            <path id="rm-wet" d="" fill="none"/>
+            <path id="rm-pulse" d="" fill="none"/>
+          </svg>
+          <ol id="routemap-list">
+            <li><a href="#stop-1"><span class="n">1</span><span class="l" data-t="rm1">La pregunta</span></a></li>
+            <li><a href="#stop-2"><span class="n">2</span><span class="l" data-t="rm2">Los datos</span></a></li>
+            <li><a href="#stop-3"><span class="n">3</span><span class="l" data-t="rm3">La revisión</span></a></li>
+            <li><a href="#stop-4"><span class="n">4</span><span class="l" data-t="rm4">El modelo de agua</span></a></li>
+            <li><a href="#stop-5"><span class="n">5</span><span class="l" data-t="rm5">El motor de rotación</span></a></li>
+            <li><a href="#stop-6"><span class="n">6</span><span class="l" data-t="rm6">La interfaz</span></a></li>
+            <li><a href="#stop-7"><span class="n">7</span><span class="l" data-t="rm7">Lo que no sabemos</span></a></li>
+            <li><a href="#stop-8"><span class="n">8</span><span class="l" data-t="rm8">Para quién</span></a></li>
+          </ol>
+        </nav>
+      </div>
+
+      <div class="wrap stops stops--first" id="stops">
+        <div class="rail" aria-hidden="true"><i></i></div>
+
+        <!-- 1 THE QUESTION -->
+        <article class="stop" id="stop-1" data-stop="1" aria-labelledby="s1-t">
+          <span class="stop__node" aria-hidden="true">1</span>
+          <span class="stop__ghost" aria-hidden="true">1</span>
+          <div class="stop__txt">
+            <p class="stop__tag" data-t="s1tag">Parada 1</p>
+            <h3 id="s1-t" data-t="s1t">¿Qué sembrar para que el agua alcance?</h3>
+            <p data-t="s1p1">Partimos de una sola pregunta, hecha desde la pampa de Majes: con el agua que llega por el canal, ¿qué conviene sembrar en las próximas tres campañas?</p>
+            <p data-t="s1p2">No buscamos el cultivo más rentable. Buscamos la combinación que cabe en el agua, cuida el suelo y deja ingreso.</p>
+          </div>
+          <div class="stop__exh">
+            <div class="exh exh--question">
+              <ol class="slots" aria-label="Tres campañas" data-tl="aria-label:slotsAria">
+                <li><span class="slots__k" data-t="slotC1">Campaña 1</span><span class="slots__q" aria-hidden="true">?</span></li>
+                <li><span class="slots__k" data-t="slotC2">Campaña 2</span><span class="slots__q" aria-hidden="true">?</span></li>
+                <li><span class="slots__k" data-t="slotC3">Campaña 3</span><span class="slots__q" aria-hidden="true">?</span></li>
+              </ol>
+              <ul class="must">
+                <li><i class="dot dot--water"></i><b data-t="mustWater">Agua</b><span data-t="mustWaterP">tiene que caber, mes a mes</span></li>
+                <li><i class="dot dot--soil"></i><b data-t="mustSoil">Suelo</b><span data-t="mustSoilP">no se agota en tres campañas</span></li>
+                <li><i class="dot dot--income"></i><b data-t="mustInc">Ingreso</b><span data-t="mustIncP">con precios reales de Majes</span></li>
+              </ul>
+            </div>
+          </div>
+        </article>
+
+        <!-- 2 THE DATA -->
+        <article class="stop" id="stop-2" data-stop="2" aria-labelledby="s2-t">
+          <span class="stop__node" aria-hidden="true">2</span>
+          <span class="stop__ghost" aria-hidden="true">2</span>
+          <div class="stop__txt">
+            <p class="stop__tag" data-t="s2tag">Parada 2</p>
+            <h3 id="s2-t" data-t="s2t">Datos de satélite y de oficina, sobre la misma pampa.</h3>
+            <p data-t="s2p">El satélite mide el verdor y el agua que gastan las plantas. Las series oficiales dicen cuánta agua entra y qué se siembra.</p>
+            <dl class="sources">
+              <div><dt>NASA MODIS MOD13Q1</dt><dd data-t="src1">Verdor (NDVI), cuadros de 250 m, 2013 a 2025.</dd></div>
+              <div><dt>NASA MODIS MOD16A3GF</dt><dd data-t="src2">Evapotranspiración (ET), 500 m: el agua que usan plantas y suelo.</dd></div>
+              <div><dt>NASA POWER</dt><dd data-t="src3">Clima diario para calcular la demanda de agua (ET0).</dd></div>
+              <div><dt>USGS SSEBop</dt><dd data-t="src4">Consumo de agua de la pampa, para contrastar con MODIS.</dd></div>
+              <div><dt>Autodema</dt><dd data-t="src5">Agua entregada en Pitay, 2013 a 2025.</dd></div>
+              <div><dt>Midagri</dt><dd data-t="src6">Rendimiento, precio en chacra y siembra mensual.</dd></div>
+            </dl>
+          </div>
+          <div class="stop__exh">
+            <div class="exh demo" id="demo-map" data-demo>
+              <div class="demo__bar">
+                <span class="live"><i></i><span data-t="liveData">Datos en vivo</span></span>
+                <button type="button" class="btn btn--small btn--ghost" id="map-random" data-t="mapRandom">Probar un cuadro al azar</button>
+              </div>
+              <div class="mapbox">
+                <div id="map-el" class="map" role="application" aria-label="Mapa satelital de Majes. Toca un punto para ver qué midió NASA ahí." data-tl="aria-label:mapAria"></div>
+                <p class="map__hint" id="map-hint" data-t="mapHint">Toca el mapa. Los puntos son cuadros regados de 5.4 ha.</p>
+              </div>
+              <div class="pixel" id="pixel-info" aria-live="polite"></div>
+              <div class="demo__state" role="status"></div>
+            </div>
+            <div class="exh terrain" id="terrain-demo" hidden>
+              <div class="demo__bar">
+                <span class="terrain__title" data-t="t3dTitle">La pampa en 3D, con relieve y trazos reales</span>
+                <button type="button" class="btn btn--small btn--ghost" id="t3d-dry" aria-pressed="false"><span class="t3d-dry__a" data-t="t3dDry">Ver año seco</span><span class="t3d-dry__b" data-t="t3dNormal">Ver año normal</span></button>
+              </div>
+              <div class="terrain__stage" id="terrain-stage" role="img" aria-label="Relieve 3D de Majes: la pampa, el cañón del Colca y los volcanes, con el canal en turquesa" data-tl="aria-label:t3dAria"></div>
+              <div class="terrain__btns" role="group" aria-label="Lugares" data-tl="aria-label:t3dPlaces">
+                <button type="button" class="btn btn--small btn--ghost" data-fly="pampa" data-t="t3dPampa">La pampa</button>
+                <button type="button" class="btn btn--small btn--ghost" data-fly="canal" data-t="t3dCanal">El canal</button>
+                <button type="button" class="btn btn--small btn--ghost" data-fly="canyon" data-t="t3dCanyon">Cañón del Colca</button>
+                <button type="button" class="btn btn--small btn--ghost" data-fly="volcanoes" data-t="t3dVolc">Volcanes</button>
+              </div>
+              <p class="terrain__note" data-t="t3dNote">El canal es el trazo de OpenStreetMap hasta donde está mapeado. El tramo en túnel hacia la pampa no aparece. Los puntos verdes son los cuadros regados de MODIS.</p>
+            </div>
+          </div>
+        </article>
+
+        <!-- 3 CHECKING -->
+        <article class="stop" id="stop-3" data-stop="3" aria-labelledby="s3-t">
+          <span class="stop__node" aria-hidden="true">3</span>
+          <span class="stop__ghost" aria-hidden="true">3</span>
+          <div class="stop__txt">
+            <p class="stop__tag" data-t="s3tag">Parada 3</p>
+            <h3 id="s3-t" data-t="s3t">Antes de modelar, comprobamos que los datos eran los de NASA.</h3>
+            <p data-t="s3p">Cada paso se contrastó con una referencia independiente. Estos son los resultados de esas pruebas.</p>
+          </div>
+          <div class="stop__exh">
+            <ul class="ledger" id="ledger">
+              <li>
+                <span class="ledger__big"><b data-count="715">715</b></span>
+                <span class="ledger__txt"><b data-t="lg1t">Verdor extraído frente a NASA AppEEARS</b><span data-t="lg1p">715 comparaciones, diferencia 0. Filas y columnas iguales en los 36 puntos revisados.</span></span>
+              </li>
+              <li>
+                <span class="ledger__big"><b data-count="156">156</b></span>
+                <span class="ledger__txt"><b data-t="lg2t">Evapotranspiración frente a AppEEARS</b><span data-t="lg2p">156 casos, correlación 0.999.</span></span>
+              </li>
+              <li>
+                <span class="ledger__big"><b data-count="3.88" data-dec="2">3.88</b><small data-t="lg3u">mm/día</small></span>
+                <span class="ledger__txt"><b data-t="lg3t">Penman-Monteith frente a FAO-56</b><span data-t="lg3p">El cálculo se contrastó con el ejemplo 18 del manual FAO-56 y da 3.88 mm al día.</span></span>
+              </li>
+              <li>
+                <span class="ledger__big"><b>2</b><small data-t="lg4u">lecturas</small></span>
+                <span class="ledger__txt"><b data-t="lg4t">Midagri leído por dos vías</b><span data-t="lg4p">Rendimiento, precio y siembra se leyeron de dos formas y las cifras coinciden.</span></span>
+              </li>
+            </ul>
+          </div>
+        </article>
+
+        <!-- 4 WATER MODEL -->
+        <article class="stop" id="stop-4" data-stop="4" aria-labelledby="s4-t">
+          <span class="stop__node" aria-hidden="true">4</span>
+          <span class="stop__ghost" aria-hidden="true">4</span>
+          <div class="stop__txt">
+            <p class="stop__tag" data-t="s4tag">Parada 4</p>
+            <h3 id="s4-t" data-t="s4t">Cuánta agua pide cada cultivo, mes a mes.</h3>
+            <p data-t="s4p1">Seguimos el método FAO-56: agua = coeficiente del cultivo (Kc) × evapotranspiración de referencia (ET0).</p>
+            <p data-t="s4p2">Calculamos ET0 con dos métodos estándar, Hargreaves y Penman-Monteith. No elegimos uno: mostramos el rango entre el bajo y el alto.</p>
+            <p class="note" data-t="s4p3">Las cifras de agua son órdenes de magnitud. No se han validado con mediciones de campo.</p>
+          </div>
+          <div class="stop__exh">
+            <div class="exh demo" id="demo-calendar" data-demo>
+              <div class="demo__bar">
+                <span class="live"><i></i><span data-t="liveData">Datos en vivo</span></span>
+                <button type="button" class="switch" id="dry-switch" role="switch" aria-checked="false">
+                  <span class="switch__track" aria-hidden="true"><i></i></span>
+                  <span class="switch__label" data-t="dryYear">Año seco</span>
+                </button>
+              </div>
+              <div class="demo__body" aria-live="polite"></div>
+              <div class="demo__state" role="status"></div>
+            </div>
+          </div>
+        </article>
+
+        <!-- 5 ROTATION ENGINE -->
+        <article class="stop" id="stop-5" data-stop="5" aria-labelledby="s5-t">
+          <span class="stop__node" aria-hidden="true">5</span>
+          <span class="stop__ghost" aria-hidden="true">5</span>
+          <div class="stop__txt">
+            <p class="stop__tag" data-t="s5tag">Parada 5</p>
+            <h3 id="s5-t" data-t="s5t">Probamos todas las combinaciones y nos quedamos con las que valen.</h3>
+            <p data-t="s5p1">El motor arma cada combinación posible de tres campañas. Las reglas agronómicas descartan las que rompen una rotación sensata.</p>
+            <p data-t="s5p2">Las que quedan se puntúan en agua, suelo e ingreso, y siempre se comparan con lo que se hace hoy.</p>
+          </div>
+          <div class="stop__exh">
+            <div class="exh demo" id="demo-rot" data-demo>
+              <div class="demo__bar demo__bar--col">
+                <span class="live"><i></i><span data-t="liveData">Datos en vivo</span></span>
+                <p class="demo__q" id="rot-q" data-t="rotQ">Elige el cultivo que tienes hoy</p>
+                <div class="chips" id="rot-chips" role="radiogroup" aria-labelledby="rot-q"></div>
+              </div>
+              <div class="demo__body" aria-live="polite"></div>
+              <div class="demo__state" role="status"></div>
+            </div>
+          </div>
+        </article>
+
+        <!-- 6 INTERFACE -->
+        <article class="stop" id="stop-6" data-stop="6" aria-labelledby="s6-t">
+          <span class="stop__node" aria-hidden="true">6</span>
+          <span class="stop__ghost" aria-hidden="true">6</span>
+          <div class="stop__txt">
+            <p class="stop__tag" data-t="s6tag">Parada 6</p>
+            <h3 id="s6-t" data-t="s6t">Dos vistas, un mismo modelo.</h3>
+            <p data-t="s6p1">El agricultor marca qué piensa sembrar y mueve tres prioridades: agua, suelo e ingreso. La Junta de Usuarios ve si el agua alcanza para una mezcla de cultivos.</p>
+            <p data-t="s6p2">Cada resultado dice por qué gana, qué cede y qué datos faltan. La interfaz está en español y en inglés.</p>
+          </div>
+          <div class="stop__exh">
+            <div class="exh frame" id="frame-box">
+              <div class="frame__bar" aria-hidden="true"><i></i><i></i><i></i><span>/app/</span></div>
+              <div class="frame__body" id="frame-body">
+                <div class="frame__cover">
+                  <p data-t="frameP">La interfaz real corre en esta misma página.</p>
+                  <button type="button" class="btn btn--primary" id="frame-load" data-t="frameBtn">Cargar la interfaz aquí</button>
+                  <a class="frame__alt" href="/app/" data-t="frameAlt">o ábrela en pantalla completa</a>
+                </div>
+              </div>
+            </div>
+          </div>
+        </article>
+
+      </div>
+
+      <div class="sandband sand">
+      <div class="wrap stops stops--mid">
+        <div class="rail" aria-hidden="true"><i></i></div>
+
+        <!-- 7 WHAT DID NOT WORK / UNKNOWN -->
+        <article class="stop" id="stop-7" data-stop="7" aria-labelledby="s7-t">
+          <span class="stop__node" aria-hidden="true">7</span>
+          <span class="stop__ghost" aria-hidden="true">7</span>
+          <div class="stop__txt">
+            <p class="stop__tag" data-t="s7tag">Parada 7</p>
+            <h3 id="s7-t" data-t="s7t">Lo que no funcionó, y lo que no sabemos.</h3>
+            <p data-t="s7p">El reto califica cómo se maneja la incertidumbre, así que la ponemos a la vista. GreenOrbit apoya la decisión; no la reemplaza.</p>
+          </div>
+          <div class="stop__exh honest">
+            <section class="h-card" aria-labelledby="h1-t">
+              <h4 id="h1-t" data-t="h1t">Un modelo predictivo no superó al rendimiento habitual</h4>
+              <p data-t="h1p">Probamos predecir el rendimiento de cada cultivo con CatBoost, validando con un año fuera cada vez. Erró más que usar el rendimiento habitual del cultivo, así que lo descartamos.</p>
+              <div class="duel" role="img" aria-label="Error de CatBoost 0.230 frente a 0.221 del rendimiento habitual" data-tl="aria-label:duelAria">
+                <div class="duel__row"><span class="duel__k" data-t="duelA">CatBoost</span><span class="duel__bar"><i style="--w:100%"></i></span><b class="duel__v">0.230</b></div>
+                <div class="duel__row"><span class="duel__k" data-t="duelB">Rendimiento habitual</span><span class="duel__bar duel__bar--win"><i style="--w:96.1%"></i></span><b class="duel__v">0.221</b></div>
+                <p class="duel__note" data-t="duelNote">Error de validación: menor es mejor.</p>
+              </div>
+            </section>
+
+            <section class="h-card" aria-labelledby="h2-t">
+              <h4 id="h2-t" data-t="h2t">El agua es un rango, no un número</h4>
+              <p data-t="h2p">Con la mezcla actual, la demanda de agua cae entre dos estimaciones estándar. Dónde cae dentro del rango depende del método.</p>
+              <div class="demo" id="demo-range" data-demo>
+                <div class="demo__body" aria-live="polite"></div>
+                <div class="demo__state" role="status"></div>
+              </div>
+            </section>
+
+            <section class="h-card" aria-labelledby="h3-t">
+              <h4 id="h3-t" data-t="h3t">Lo que no sabemos</h4>
+              <ul class="unknowns">
+                <li><b data-t="u1t">Costos de producción</b><span data-t="u1p">Solo la alfalfa tiene dato oficial. El ingreso que mostramos es bruto.</span></li>
+                <li><b data-t="u2t">Salinidad medida por parcela</b><span data-t="u2p">Usamos un valor de referencia de 2.8 dS/m.</span></li>
+                <li><b data-t="u3t">Agua que recibe cada parcela</b><span data-t="u3p">Usamos el promedio por hectárea.</span></li>
+                <li><b data-t="u4t">Qué pasa dentro de un cuadro de satélite</b><span data-t="u4p">El detalle por debajo de 5.4 ha no se ve.</span></li>
+                <li><b data-t="u5t">Qué zonas sufrirán primero</b><span data-t="u5p">El mapa muestra dónde bajó el verdor en años secos. Esa señal es débil: no identifica con certeza las zonas sensibles.</span></li>
+              </ul>
+              <details class="caveats" id="caveats" hidden>
+                <summary data-t="cavSum">Avisos que el modelo devuelve, tal cual</summary>
+                <ul id="caveats-list"></ul>
+              </details>
+            </section>
+          </div>
+        </article>
+
+      </div>
+      </div>
+
+      <div class="wrap stops stops--last">
+        <div class="rail" aria-hidden="true"><i></i></div>
+
+        <!-- 8 WHO IT IS FOR -->
+        <article class="stop" id="stop-8" data-stop="8" aria-labelledby="s8-t">
+          <span class="stop__node" aria-hidden="true">8</span>
+          <span class="stop__ghost" aria-hidden="true">8</span>
+          <div class="stop__txt">
+            <p class="stop__tag" data-t="s8tag">Parada 8</p>
+            <h3 id="s8-t" data-t="s8t">Primero la Junta de Usuarios. Después, cada agricultor.</h3>
+            <div class="who">
+              <div>
+                <h4 data-t="w1t">La Junta de Usuarios</h4>
+                <p data-t="w1p">Debe presentar un plan de cultivo y riego y enfrenta entregas reducidas. Necesita saber si el agua alcanza para la mezcla de cultivos de su zona.</p>
+              </div>
+              <div>
+                <h4 data-t="w2t">El agricultor</h4>
+                <p data-t="w2p">Pregunta algo más concreto: «¿cuánta superficie puedo regar si me recortan la asignación?». La app le muestra qué rotaciones caben en el agua que le llega.</p>
+              </div>
+            </div>
+          </div>
+          <div class="stop__exh">
+            <div class="exh demo" id="demo-board" data-demo>
+              <div class="demo__bar demo__bar--col">
+                <span class="live"><i></i><span data-t="liveData">Datos en vivo</span></span>
+                <p class="demo__q" id="board-q" data-t="boardQ">¿Alcanza el agua para esta mezcla de cultivos?</p>
+                <div class="seg seg--wrap" id="board-seg" role="radiogroup" aria-labelledby="board-q"></div>
+              </div>
+              <div class="demo__body" aria-live="polite"></div>
+              <div class="demo__state" role="status"></div>
+            </div>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <!-- ============ CLOSING ============ -->
+    <section class="closing" id="cierre" aria-labelledby="c-title">
+      <div class="wrap closing__in">
+        <h2 id="c-title" data-t="cTitle">Prueba GreenOrbit con tu propio cultivo.</h2>
+        <p data-t="cLead">Elige qué tienes hoy y mira qué rotaciones caben en el agua de Majes, en un año normal y en uno seco.</p>
+        <div class="hero__cta">
+          <a class="btn btn--light btn--big" href="/app/" data-t="ctaOpen">Abrir GreenOrbit</a>
+          <a class="btn btn--outline-light btn--big" href="#route" data-t="ctaBack">Volver a la ruta</a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="foot">
+    <div class="wrap foot__in">
+      <p class="foot__brand">GreenOrbit — NASA Space Apps Challenge 2026, Arequipa, Perú</p>
+      <p class="foot__data" data-t="footData">Datos: NASA MODIS, NASA POWER, USGS SSEBop, Autodema, Midagri. Imagen de mapa: Esri.</p>
+    </div>
+  </footer>
+
+  <!-- route position: where you are on the route -->
+  <div class="hud" id="hud" role="navigation" aria-label="Posición en la ruta" data-tl="aria-label:hudAria" hidden>
+    <button type="button" class="hud__btn" id="hud-prev" aria-label="Parada anterior" data-tl="aria-label:hudPrev">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M10 3 5 8l5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>
+    <p class="hud__txt" id="hud-txt" aria-live="polite"></p>
+    <span class="hud__dots" id="hud-dots" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span>
+    <button type="button" class="hud__btn" id="hud-next" aria-label="Parada siguiente" data-tl="aria-label:hudNext">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="m6 3 5 5-5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>
+  </div>
+
+  <noscript><p class="noscript">GreenOrbit necesita JavaScript para las demostraciones en vivo. El producto sigue disponible en <a href="/app/">/app/</a>.</p></noscript>
+</body>
+</html>

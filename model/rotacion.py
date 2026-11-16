@@ -10,7 +10,7 @@ from pathlib import Path
 
 import i18n
 
-RULES = json.loads((Path(__file__).parent / "data" / "reglas_rotacion_greenorbit.json").read_text())
+RULES = json.loads((Path(__file__).parent / "data" / "reglas_rotacion_greenorbit.json").read_text(encoding="utf-8"))
 ALIAS = {"maíz": "maiz_amilaceo", "paprika": "paprika", "papa": "papa", "cebolla": "cebolla", "ajo": "ajo", "haba": "haba",
          "alfalfa": "alfalfa", "quinua": "quinua", "zapallo": "zapallo", "arveja": "arveja", "cebada": "cebada", "trigo": "trigo"}
 FAMILY = {crop: fam for fam, crops in RULES["familias"].items() for crop in crops}
@@ -39,7 +39,10 @@ def check(sequence, previous=None, lang="es"):
     txt, name = TXT.get(lang, TXT["es"]), (lambda c: i18n.crop(c, lang))
     bad, good = [], []
     for i in range(1, len(seq)):
-        if fams[i] and fams[i] == fams[i - 1] and ALIAS.get(seq[i].lower()) != "alfalfa":
+        # The rule applies to every family, in both directions. The only pair that is not a repeat is alfalfa after
+        # alfalfa: it is perennial, so staying on it is not a rotation step.
+        perennial_stay = ALIAS.get(seq[i].lower()) == ALIAS.get(seq[i - 1].lower()) == "alfalfa"
+        if fams[i] and fams[i] == fams[i - 1] and not perennial_stay:
             bad.append(txt["same"].format(a=name(seq[i - 1]), b=name(seq[i]), fam=fams[i]))
         a, b = ALIAS.get(seq[i - 1].lower()), ALIAS.get(seq[i].lower())
         if a in CEREALS and b in LEGUMES:

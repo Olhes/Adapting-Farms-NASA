@@ -5,6 +5,7 @@ in the MODIS sinusoidal grid. Pixel coordinates are recomputed with the sinusoid
 and checked against the array shapes; row/column agree with AppEEARS Line/Sample (see check_against_appeears).
 """
 import math
+import warnings
 from functools import lru_cache
 from pathlib import Path
 
@@ -136,20 +137,21 @@ def point_info(lat, lon, zone="majes", lang="es"):
             "fuente": txt["source"]}
 
 
+@lru_cache(maxsize=8)
 def irrigated_points(step=1, zone="majes"):
-    """Centres of pixels with mean NDVI >= 0.3 (2013-2024): where the zone is irrigated."""
+    """Centres of pixels with mean NDVI >= 0.3 (2013-2024): where the zone is irrigated. Cached and shared: do not modify."""
     if not available(zone):
         return []
     years, mean = _ndvi(zone)
-    base = np.nanmean(mean[[k for k, y in enumerate(years) if y < 2025]], axis=0)
-    r0, nr, c0, nc = _grid(NDVI_PIX, zone)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", RuntimeWarning)       # all-NaN pixels give NaN on purpose
+        base = np.nanmean(mean[[k for k, y in enumerate(years) if y < 2025]], axis=0)
+    r0, _, c0, _ = _grid(NDVI_PIX, zone)
+    ii, jj = np.nonzero(base[::step, ::step] >= 0.3)       # row-major, like the original double loop
     out = []
-    for i in range(0, nr, step):
-        for j in range(0, nc, step):
-            if base[i, j] >= 0.3:
-                x, y = ULX + (c0 + j + 0.5) * NDVI_PIX, ULY - (r0 + i + 0.5) * NDVI_PIX
-                la, lo = _inv(x, y)
-                out.append([round(la, 5), round(lo, 5), round(float(base[i, j]), 2)])
+    for i, j in zip((ii * step).tolist(), (jj * step).tolist()):
+        la, lo = _inv(ULX + (c0 + j + 0.5) * NDVI_PIX, ULY - (r0 + i + 0.5) * NDVI_PIX)
+        out.append([round(la, 5), round(lo, 5), round(float(base[i, j]), 2)])
     return out
 
 
@@ -157,7 +159,7 @@ def check_against_appeears(csv_path):
     """Row/col computed here must equal AppEEARS Line_Y/Sample_X for the same lat/lon."""
     import csv
     bad = 0
-    for r in csv.DictReader(open(csv_path)):
+    for r in csv.DictReader(open(csv_path, encoding="utf-8")):
         x, y = _fwd(float(r["Latitude"]), float(r["Longitude"]))
         row, col = math.floor((ULY - y) / NDVI_PIX), math.floor((x - ULX) / NDVI_PIX)
         bad += (row, col) != (int(float(r["MOD13Q1_061_Line_Y_250m"])), int(float(r["MOD13Q1_061_Sample_X_250m"])))
@@ -187,50 +189,53 @@ def site(lat, lon, zone="majes"):
 
 
 
-def vulnerability(zone="majes", min_mean=0.3, lang="es"):
+def _compute_vulnerability(zone, min_mean, lang):
     """Where a year with less water hits hardest: per irrigated pixel, mean greenness change in the dry years
     (2014, 2016, 2023) versus its own other years (2013-2024). Majes only: the dry years come from the Condoroma
-    delivery, which does not feed other valleys."""
+    delivery, which does not feed other valleys. Vectorised over the irrigated pixels (same arithmetic, in float32,
+    as the per-pixel loop it replaces)."""
     txt = TXT.get(lang, TXT["es"])
     dry_years = list(DRY.get(zone, {}))
     if not available(zone) or not dry_years:
         return {"disponible": False, "mensaje": txt["majes_only"]}
     years, mean = _ndvi(zone)
+    at = {int(y): k for k, y in enumerate(years)}
     keep = [k for k, y in enumerate(years) if y < 2025]
-    base = np.nanmean(mean[keep], axis=0)
-    r0, nr, c0, nc = _grid(NDVI_PIX, zone)
+    r0, _, c0, _ = _grid(NDVI_PIX, zone)
     ha = NDVI_PIX ** 2 / 1e4
-    pts, per_year = [], {y: 0 for y in dry_years}
-    lat_c, lon_c = [], []
-    for i in range(nr):
-        for j in range(nc):
-            if not base[i, j] >= min_mean:
-                continue
-            series = {y: mean[k, i, j] for k, y in enumerate(years)}
-            first = np.nanmean([series[y] for y in (2013, 2014, 2015)])
-            last = np.nanmean([series[y] for y in (2022, 2023, 2024)])
-            changes = []
-            if last < 0.75 * first:
-                level, avg = "cambio", float(100 * (last / first - 1))   # lasting decline: city growth or abandonment, not drought
-            else:
-                for y in dry_years:
-                    k = years.index(y)
-                    others = [mean[q, i, j] for q in keep if q != k and not np.isnan(mean[q, i, j])]
-                    nxt = series.get(y + 1, np.nan)
-                    if np.isnan(mean[k, i, j]) or not others:
-                        continue
-                    ref = np.mean(others)
-                    c = 100 * (mean[k, i, j] / ref - 1)
-                    if not np.isnan(nxt) and nxt < 0.9 * ref and c < 0:
-                        continue                                       # did not recover the next year: not a water signal
-                    changes.append(c)
-                    per_year[y] += c <= -15
-                avg = float(np.mean(changes)) if changes else 0.0
-                level = "alta" if avg <= -10 else ("media" if avg <= -3 else "baja")
-            la, lo = _inv(ULX + (c0 + j + 0.5) * NDVI_PIX, ULY - (r0 + i + 0.5) * NDVI_PIX)
-            pts.append([round(la, 5), round(lo, 5), round(avg, 1), level])
-            if level == "alta":
-                lat_c.append(la), lon_c.append(lo)
+    with warnings.catch_warnings(), np.errstate(all="ignore"):
+        warnings.simplefilter("ignore", RuntimeWarning)       # all-NaN pixels give NaN on purpose
+        base = np.nanmean(mean[keep], axis=0)
+        ii, jj = np.nonzero(base >= min_mean)                 # NaN is False; row-major like the original loop
+        cube = mean[:, ii, jj]                                # (years, irrigated pixels)
+        first = np.nanmean(cube[[at[y] for y in (2013, 2014, 2015)]], axis=0)
+        last = np.nanmean(cube[[at[y] for y in (2022, 2023, 2024)]], axis=0)
+        lasting = last < 0.75 * first                         # lasting decline: city growth or abandonment, not drought
+        total = np.zeros(len(ii), dtype=np.float32)
+        used = np.zeros(len(ii), dtype=np.int64)
+        per_year = {}
+        for y in dry_years:
+            k = at[y]
+            others = cube[[q for q in keep if q != k]]
+            ref = np.nanmean(others, axis=0)
+            cur = cube[k]
+            c = 100 * (cur / ref - 1)
+            nxt = cube[at[y + 1]] if y + 1 in at else np.full(len(ii), np.nan, dtype=cube.dtype)
+            no_data = np.isnan(cur) | np.all(np.isnan(others), axis=0)
+            not_water = ~np.isnan(nxt) & (nxt < 0.9 * ref) & (c < 0)     # did not recover the next year
+            use = ~lasting & ~no_data & ~not_water
+            total = total + np.where(use, c, np.float32(0)).astype(np.float32)
+            used += use
+            per_year[y] = int(np.sum(use & (c <= -15)))
+        avg_dry = np.where(used > 0, (total.astype(np.float64) / np.maximum(used, 1)).astype(np.float32), np.float32(0))
+        avg = np.where(lasting, 100 * (last / first - 1), avg_dry)
+        level = np.where(lasting, "cambio", np.where(avg <= -10, "alta", np.where(avg <= -3, "media", "baja")))
+    pts, lat_c, lon_c = [], [], []
+    for i, j, a, lv in zip(ii.tolist(), jj.tolist(), avg.tolist(), level.tolist()):
+        la, lo = _inv(ULX + (c0 + j + 0.5) * NDVI_PIX, ULY - (r0 + i + 0.5) * NDVI_PIX)
+        pts.append([round(la, 5), round(lo, 5), round(a, 1), lv])
+        if lv == "alta":
+            lat_c.append(la), lon_c.append(lo)
     count = {lv: sum(p[3] == lv for p in pts) for lv in ("alta", "media", "baja", "cambio")}
     sector = None
     if lat_c:
@@ -245,3 +250,13 @@ def vulnerability(zone="majes", min_mean=0.3, lang="es"):
             "ha_con_caida_15_por_anio": {str(y): round(v * ha) for y, v in per_year.items()},
             "sector_mas_sensible": sector, "pixel_ha": round(ha, 2),
             "fuente": txt["vul_source"]}
+
+
+_vulnerability_cached = lru_cache(maxsize=16)(_compute_vulnerability)
+
+
+def vulnerability(zone="majes", min_mean=0.3, lang="es"):
+    """Irrigated pixels classified by how much greenness they lost in the years with less water (Majes).
+    The satellite arrays never change at runtime, so the result is cached per (zone, min_mean, lang) and shared:
+    do not modify it."""
+    return _vulnerability_cached(zone, float(min_mean), lang)

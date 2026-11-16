@@ -168,4 +168,14 @@ def test_alfalfa_does_not_fit_the_year_and_crops_only_ask_water_in_their_cycle()
     alfalfa = agua_parcela.calendar(["Alfalfa"])["campanas"][0]
     assert not alfalfa["cabe_en_el_anio"]
     papa = agua_parcela.calendar(["Papa"])["campanas"][0]
-    assert papa["cabe_en_el_anio"] and sum(v == 0 for v in papa["demanda_m3_ha"]) >= 7   # ~4-month cycle
+    assert papa["cabe_en_el_anio"]
+    # a crop asks for water only in the months its cycle covers, from any of its sowing months
+    et0 = sim.load_et0_monthly("hargreaves")
+    for crop in ("Papa", "Cebolla", "Haba"):
+        k = sim.load_crops()[crop]
+        covered = [any(sim.seasonal_profile(k["kc"], k["ciclo"], m, et0)[i] > 0 for m, _ in sim.SOWING[crop]["months"])
+                   for i in range(12)]
+        demand = agua_parcela.calendar([crop])["campanas"][0]["demanda_m3_ha"]
+        assert [v > 0 for v in demand] == covered
+    haba = agua_parcela.calendar(["Haba"])["campanas"][0]
+    assert sum(v == 0 for v in haba["demanda_m3_ha"]) >= 7   # one sowing month, ~4-month cycle

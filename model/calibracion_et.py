@@ -23,9 +23,7 @@ def modeled_etc_hm3(area_ha, method):
     for c, pct in mix.items():
         share = pct / tot
         if c in crops and c in s.SOWING:
-            m = s.SOWING[c][0]
-            months = m if isinstance(m, tuple) else (m,)
-            mm = sum(sum(s.seasonal_profile(crops[c]["kc"], crops[c]["ciclo"], x, et0)) for x in months) / len(months)
+            mm = sum(w * sum(s.seasonal_profile(crops[c]["kc"], crops[c]["ciclo"], x, et0)) for x, w in s.SOWING[c]["months"])
             total += share * area_ha * mm * 10 / 1e6
         elif c in s.MEASURED:
             total += share * area_ha * s.MEASURED[c] * 0.75 / 1e6

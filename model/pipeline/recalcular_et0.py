@@ -55,7 +55,7 @@ def hargreaves(doy, tx, tn):
     return 0.0023 * 0.408 * ra_mj(doy) * ((tx + tn) / 2 + 17.8) * math.sqrt(max(tx - tn, 0.1))
 
 
-lines = POWER.read_text().split("\n")
+lines = POWER.read_text(encoding="utf-8").split("\n")
 rows = [r for r in csv.DictReader(lines[lines.index("-END HEADER-") + 1:]) if r.get("YEAR")]
 
 annual = collections.defaultdict(lambda: collections.defaultdict(float))
@@ -78,20 +78,20 @@ for raw in rows:
         annual[y][k] += v
         msum[(y, month, k)] += v
 
-with open(HERE / "et0_anual_majes_1984_2014.csv", "w", newline="") as f:
+with open(HERE / "et0_anual_majes_1984_2014.csv", "w", newline="", encoding="utf-8") as f:
     w = csv.writer(f)
     w.writerow(["anio", "et0_hargreaves_mm", "et0_pm_mm", "et0_pm_1400m_mm"])
     for y in range(Y0, Y1 + 1):
         w.writerow([y] + [round(annual[y][k], 1) for k in ("hargreaves", "pm", "pm_1400m")])
 
-with open(HERE / "et0_mensual_majes_climatologia.csv", "w", newline="") as f:
+with open(HERE / "et0_mensual_majes_climatologia.csv", "w", newline="", encoding="utf-8") as f:
     w = csv.writer(f)
     w.writerow(["mes", "et0_hargreaves_mm", "et0_pm_mm", "et0_pm_1400m_mm"])
     for m in range(1, 13):
         w.writerow([m] + [round(st.mean(msum[(y, m, k)] for y in range(Y0, Y1 + 1)), 1) for k in ("hargreaves", "pm", "pm_1400m")])
 
 num = lambda s: float(s.replace(",", "."))
-model = list(csv.DictReader(open(MODEL)))
+model = list(csv.DictReader(open(MODEL, encoding="utf-8")))
 out = []
 for r in model:
     y, kc, cyc = int(r["anio"]), num(r["kc_medio"]), num(r["ciclo_dias"])
@@ -103,7 +103,7 @@ for r in model:
         rec[f"agua_m3_ha_{tag}"] = round(etc * 10 / EFFICIENCY, 0)
     rec["agua_modelo_m3_ha"] = round(num(r["agua_m3_ha"]), 0)
     out.append(rec)
-with open(HERE / "demanda_agua_cultivos_majes.csv", "w", newline="") as f:
+with open(HERE / "demanda_agua_cultivos_majes.csv", "w", newline="", encoding="utf-8") as f:
     w = csv.DictWriter(f, fieldnames=list(out[0]))
     w.writeheader(); w.writerows(out)
 

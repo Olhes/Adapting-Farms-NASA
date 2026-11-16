@@ -93,7 +93,7 @@ def do_ndvi(start, end, limit, workers):
             res.append(r)
             if k % 25 == 0 or k == len(items):
                 print(f"  {k}/{len(items)}", flush=True)
-    with open(HERE / "ndvi_pampa_fechas.csv", "w", newline="") as f:
+    with open(HERE / "ndvi_pampa_fechas.csv", "w", newline="", encoding="utf-8") as f:
         w = csv.writer(f)
         w.writerow(["fecha", "pix_validos", "pix_malos", "pix_regados", "ndvi_medio_regados"])
         for d, a, bad in res:
